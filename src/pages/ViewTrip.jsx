@@ -17,15 +17,18 @@ function badgeFor(category) {
   return CATEGORY_BADGE[category] || CATEGORY_BADGE.OTHER;
 }
 
-function formatTime(slotTime) {
-  if (!slotTime) return '';
-  // BE returns "HH:mm" or "HH:mm:ss"
-  const [h, m] = slotTime.split(':');
-  if (!h) return slotTime;
-  const hh = parseInt(h, 10);
-  const ampm = hh < 12 ? 'AM' : 'PM';
-  const dispH = hh === 0 ? 12 : hh > 12 ? hh - 12 : hh;
-  return `${String(dispH).padStart(2, '0')}:${m || '00'} ${ampm}`;
+// Triple 모티브 — 시간 표시 X. timeCategory를 한글 라벨로.
+const TIME_CATEGORY_LABEL = {
+  BREAKFAST: { emoji: '🌅', label: '아침' },
+  MORNING: { emoji: '☀️', label: '오전' },
+  LUNCH: { emoji: '🍱', label: '점심' },
+  AFTERNOON: { emoji: '🌤️', label: '오후' },
+  DINNER: { emoji: '🍽️', label: '저녁' },
+  NIGHT: { emoji: '🌙', label: '밤' },
+};
+
+function timeCategoryLabel(category) {
+  return TIME_CATEGORY_LABEL[category] || { emoji: '📍', label: '장소' };
 }
 
 function formatDayLabel(dayNumber, startDate) {
@@ -79,8 +82,9 @@ const SlotCard = ({ slot, dayId, itineraryId, onSwapped }) => {
       />
       <div className="flex flex-col gap-[5.5px]">
         <div className="flex items-start justify-between gap-2 min-h-[33.5px]">
-          <span className="font-['Plus_Jakarta_Sans'] font-semibold text-[22px] leading-7 text-[#0b1c30]">
-            {formatTime(slot.slotTime)}
+          <span className="font-['Plus_Jakarta_Sans'] font-semibold text-[18px] leading-7 text-[#464555] flex items-center gap-1.5">
+            <span className="text-[20px]" aria-hidden>{timeCategoryLabel(slot.timeCategory).emoji}</span>
+            <span>{timeCategoryLabel(slot.timeCategory).label}</span>
           </span>
           <span
             className="shrink-0 rounded px-2 py-1 font-['Inter'] text-[11px] font-medium uppercase tracking-[0.275px] leading-[16.5px]"
@@ -97,6 +101,16 @@ const SlotCard = ({ slot, dayId, itineraryId, onSwapped }) => {
             </h3>
             {place.nameLocal && place.nameLocal !== place.name && (
               <p className="font-['Inter'] text-[13px] text-[#777587]">{place.nameLocal}</p>
+            )}
+            {slot.recommendation && (
+              <div className="mt-2 bg-[rgba(195,192,255,0.15)] border-l-2 border-[#4f46e5] rounded-r px-3 py-2">
+                <span className="material-symbols-outlined text-[#4f46e5] text-[14px] mr-1 align-middle" aria-hidden>
+                  auto_awesome
+                </span>
+                <span className="font-['Inter'] text-[13px] text-[#3525cd] leading-5 align-middle">
+                  {slot.recommendation}
+                </span>
+              </div>
             )}
             {place.address && (
               <p className="font-['Inter'] text-[14px] text-[#464555] leading-6 pt-1">
