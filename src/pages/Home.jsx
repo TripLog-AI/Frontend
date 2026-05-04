@@ -1,8 +1,10 @@
-// src/pages/Home.jsx — Figma node 1:10372 + BE youtube-courses 연동
+// src/pages/Home.jsx — Figma node 1:10372 + BE youtube-courses + travelogue feed (RAG)
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import { fetchYoutubeCourses, saveYoutubeCourse } from '../api/youtube';
+import { fetchTravelogueFeed } from '../api/travelogues';
+import { fetchMyItineraries } from '../api/itineraries';
 
 const imgUserProfile =
   'https://www.figma.com/api/mcp/asset/97f9232d-9e3a-4c78-a5dc-ff88c9ca4faf';
@@ -128,6 +130,8 @@ const GuideCard = ({ item, onClick }) => {
 const Home = () => {
   const navigate = useNavigate();
   const [guides, setGuides] = useState([]);
+  const [travelogues, setTravelogues] = useState([]);
+  const [historyPattern, setHistoryPattern] = useState(null); // {countries: [...], main: 'Malaysia'}
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [savingId, setSavingId] = useState(null);
@@ -136,14 +140,45 @@ const Home = () => {
     let cancelled = false;
     (async () => {
       try {
-        const data = await fetchYoutubeCourses({ size: 10 });
+        // 병렬로 youtube-courses + travelogues + my history 모두 fetch
+        const [coursesRaw, traveloguesRaw, historyRaw] = await Promise.all([
+          fetchYoutubeCourses({ size: 10 }).catch(() => null),
+          fetchTravelogueFeed({ size: 20 }).catch(() => null),
+          fetchMyItineraries({ size: 10 }).catch(() => null),
+        ]);
         if (cancelled) return;
-        // BE는 list endpoint가 array 또는 { items, nextCursor } 형태 둘 다 가능 — defensive
-        const list = Array.isArray(data) ? data : data?.items || [];
-        const items = list.map(mapCourseToGuide);
-        setGuides(items);
+
+        // youtube-courses
+        const coursesList = Array.isArray(coursesRaw) ? coursesRaw : coursesRaw?.items || [];
+        setGuides(coursesList.map(mapCourseToGuide));
+
+        // 사용자 history pattern 추출 (RAG Layer 2 시각화)
+        const myItineraries = Array.isArray(historyRaw) ? historyRaw : historyRaw?.items || [];
+        const countryCounts = {};
+        myItineraries.forEach((it) => {
+          if (it.country) countryCounts[it.country] = (countryCounts[it.country] || 0) + 1;
+        });
+        const sortedCountries = Object.entries(countryCounts).sort((a, b) => b[1] - a[1]);
+        if (sortedCountries.length > 0) {
+          setHistoryPattern({
+            countries: sortedCountries.map(([c]) => c),
+            main: sortedCountries[0][0],
+          });
+        }
+
+        // 여행기 피드 — history pattern 매칭 우선 정렬
+        const tlList = Array.isArray(traveloguesRaw) ? traveloguesRaw : traveloguesRaw?.items || [];
+        const matchCountries = sortedCountries.map(([c]) => c);
+        const sea = ['Malaysia', 'Vietnam', 'Indonesia', 'Thailand', 'Singapore', 'Philippines'];
+        const isSEA = matchCountries.some((c) => sea.includes(c));
+        const sorted = [...tlList].sort((a, b) => {
+          const aMatch = matchCountries.includes(a.country) || (isSEA && sea.includes(a.country));
+          const bMatch = matchCountries.includes(b.country) || (isSEA && sea.includes(b.country));
+          return (bMatch ? 1 : 0) - (aMatch ? 1 : 0);
+        });
+        setTravelogues(sorted);
       } catch (err) {
-        if (!cancelled) setError(err.message || '코스를 불러오지 못했습니다.');
+        if (!cancelled) setError(err.message || '데이터를 불러오지 못했습니다.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -152,6 +187,19 @@ const Home = () => {
       cancelled = true;
     };
   }, []);
+
+  // RAG personalize 그리팅 — 사용자 history 기반
+  const personalizedGreeting = (() => {
+    if (!historyPattern) return null;
+    const sea = ['Malaysia', 'Vietnam', 'Indonesia', 'Thailand', 'Singapore', 'Philippines'];
+    if (sea.includes(historyPattern.main)) {
+      return '동남아 여행지를 좋아하시는 분께 추천하는 여행기';
+    }
+    if (['Japan', 'South Korea', 'China', 'Taiwan'].includes(historyPattern.main)) {
+      return '동아시아 여행지를 좋아하시는 분께 추천하는 여행기';
+    }
+    return `${historyPattern.main} 스타일 여행을 좋아하시는 분께`;
+  })();
 
   const handlePickCourse = async (item) => {
     if (savingId) return;
@@ -235,6 +283,60 @@ const Home = () => {
             </Link>
           </div>
         </section>
+
+        {/* ★ RAG Layer 2 — 사용자 history 기반 personalize 여행기 피드 */}
+        {travelogues.length > 0 && (
+          <section className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              {personalizedGreeting && (
+                <span className="font-['Inter'] text-[13px] font-semibold text-[#4f46e5] tracking-tight">
+                  ✨ {personalizedGreeting}
+                </span>
+              )}
+              <h2 className="font-['Plus_Jakarta_Sans'] font-semibold text-[26px] leading-tight text-on-surface">
+                다른 여행자들의 여행기
+              </h2>
+            </div>
+
+            <div className="flex gap-3 overflow-x-auto -mx-5 px-5 pb-2 snap-x snap-mandatory">
+              {travelogues.slice(0, 8).map((tl) => (
+                <Link
+                  key={tl.id}
+                  to={`/travelogues/${tl.id}`}
+                  className="snap-start shrink-0 w-[260px] bg-white border border-outline-variant rounded-xl overflow-hidden hover:shadow-md transition-shadow"
+                >
+                  <div className="relative h-[160px] w-full overflow-hidden bg-[#d3e4fe]">
+                    {tl.coverImageUrl && (
+                      <img
+                        alt=""
+                        src={tl.coverImageUrl}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    )}
+                    <div className="absolute top-2 left-2 backdrop-blur-sm bg-white/90 rounded-md px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#0b1c30]">
+                      {tl.city}
+                    </div>
+                  </div>
+                  <div className="p-3 flex flex-col gap-1.5">
+                    <h3 className="font-['Plus_Jakarta_Sans'] font-semibold text-[15px] leading-tight text-[#0b1c30] line-clamp-2">
+                      {tl.title}
+                    </h3>
+                    <div className="flex items-center justify-between text-[#777587]">
+                      <span className="font-['Inter'] text-[11px] truncate">
+                        {tl.author?.nickname || '여행자'}
+                      </span>
+                      <span className="font-['Inter'] text-[11px] flex items-center gap-2">
+                        <span>❤️ {tl.likeCount}</span>
+                        <span>📥 {tl.scrapCount}</span>
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="flex flex-col gap-6">
           <div className="flex items-start justify-between gap-4">

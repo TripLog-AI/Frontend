@@ -5,6 +5,7 @@ import ViewTrip from './pages/ViewTrip';
 import MyTrips from './pages/MyTrips';
 import CreateTrip from './pages/CreateTrip';
 import Login from './pages/Login';
+import TravelogueDetail from './pages/TravelogueDetail';
 import AuthGuard from './components/AuthGuard';
 
 function App() {
@@ -41,6 +42,14 @@ function App() {
           element={
             <AuthGuard>
               <CreateTrip />
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/travelogues/:id"
+          element={
+            <AuthGuard>
+              <TravelogueDetail />
             </AuthGuard>
           }
         />
