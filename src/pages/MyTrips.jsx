@@ -160,7 +160,9 @@ const MyTrips = () => {
       try {
         const data = await fetchMyItineraries({ size: 30 });
         if (cancelled) return;
-        setTrips(data?.items || []);
+        // BE는 list endpoint가 array 또는 { items, nextCursor } 형태 둘 다 가능 — defensive
+        const list = Array.isArray(data) ? data : data?.items || [];
+        setTrips(list);
       } catch (err) {
         if (!cancelled) setError(err.message || '일정을 불러오지 못했습니다.');
       } finally {

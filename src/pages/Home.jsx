@@ -22,7 +22,18 @@ function formatDuration(seconds) {
 }
 
 function mapCourseToGuide(course, idx) {
-  const titleLines = (course.title || 'Curated Course').split(/\n|—|–/).slice(0, 2);
+  const rawTitle = course.title || 'Curated Course';
+  // Title을 두 줄로 — 한글이면 단어 단위가 아니라 길이 기준으로 split
+  let titleLines;
+  if (rawTitle.includes('|')) {
+    titleLines = rawTitle.split('|').map((s) => s.trim()).slice(0, 2);
+  } else if (rawTitle.length > 18) {
+    const mid = Math.floor(rawTitle.length / 2);
+    const breakAt = rawTitle.indexOf(' ', mid) > 0 ? rawTitle.indexOf(' ', mid) : mid;
+    titleLines = [rawTitle.slice(0, breakAt).trim(), rawTitle.slice(breakAt).trim()];
+  } else {
+    titleLines = [rawTitle];
+  }
   const desc = [];
   if (course.city) desc.push(course.city);
   if (course.country) desc.push(course.country);
@@ -30,11 +41,11 @@ function mapCourseToGuide(course, idx) {
   return {
     id: course.id,
     image: course.thumbnailUrl || fallbackThumbnail(idx),
-    duration: formatDuration(course.durationSeconds) || course.duration || '—',
-    title: titleLines.length > 0 ? titleLines : [course.title || 'Curated Course'],
+    duration: formatDuration(course.durationSeconds) || course.duration || 'Featured',
+    title: titleLines,
     description: desc.slice(0, 2),
     creator: course.creatorAvatarUrl || fallbackCreator(idx),
-    creatorName: course.youtubeAuthor || course.creatorName || 'TripLog AI Curated',
+    creatorName: course.channelName || course.youtubeAuthor || course.creatorName || 'TripLog AI',
     views: course.viewCount ? `${course.viewCount} views` : 'Featured',
   };
 }
@@ -127,7 +138,9 @@ const Home = () => {
       try {
         const data = await fetchYoutubeCourses({ size: 10 });
         if (cancelled) return;
-        const items = (data?.items || []).map(mapCourseToGuide);
+        // BE는 list endpoint가 array 또는 { items, nextCursor } 형태 둘 다 가능 — defensive
+        const list = Array.isArray(data) ? data : data?.items || [];
+        const items = list.map(mapCourseToGuide);
         setGuides(items);
       } catch (err) {
         if (!cancelled) setError(err.message || '코스를 불러오지 못했습니다.');
