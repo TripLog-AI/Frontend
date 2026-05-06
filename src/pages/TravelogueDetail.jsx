@@ -1,32 +1,25 @@
-// src/pages/TravelogueDetail.jsx — Triple 클론 본질: 다른 사람 여행기 → 내 일정으로 담기
+// src/pages/TravelogueDetail.jsx — Triple 톤 mock UI (ui_mock/08_travelogue_detail.html)
+// 작가 행 + 큰 cover + 제목/통계 + 본문 + Day별 mini 카드 + 댓글 + Deep Copy CTA
 import React, { useEffect, useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
+import BottomNav from '../components/BottomNav';
 import {
   fetchTravelogueById,
   scrapTravelogue,
   likeTravelogue,
   unlikeTravelogue,
 } from '../api/travelogues';
+import { cityPhotoUrl } from '../utils/cityPhotos';
 
-const CATEGORY_BADGE = {
-  ATTRACTION: { label: 'SIGHTSEEING', bg: '#c9e6ff', text: '#001e2f' },
-  RESTAURANT: { label: 'DINING', bg: '#ffb95f', text: '#653e00' },
-  CAFE: { label: 'CAFE', bg: '#fde2c4', text: '#653e00' },
-  ACCOMMODATION: { label: 'STAY', bg: '#d3e4fe', text: '#001e2f' },
-  SHOPPING: { label: 'SHOPPING', bg: '#e9d5ff', text: '#4a1d96' },
-  OTHER: { label: 'EXPLORE', bg: '#89ceff', text: '#004c6e' },
-};
-
-function badgeFor(c) {
-  return CATEGORY_BADGE[c] || CATEGORY_BADGE.OTHER;
-}
-
-function formatRange(start, end) {
-  if (!start || !end) return '';
-  const s = new Date(start);
-  const e = new Date(end);
-  const opt = { month: 'short', day: '2-digit' };
-  return `${s.toLocaleDateString('en-US', opt)} - ${e.toLocaleDateString('en-US', opt)}, ${e.getFullYear()}`;
+function emojiForPlace(place) {
+  if (!place) return '📍';
+  const cat = place.category;
+  if (cat === 'CAFE') return '☕';
+  if (cat === 'RESTAURANT') return '🍱';
+  if (cat === 'ACCOMMODATION') return '🏨';
+  if (cat === 'SHOPPING') return '🛍️';
+  if (cat === 'ATTRACTION') return '🏛️';
+  return '📍';
 }
 
 const TravelogueDetail = () => {
@@ -78,11 +71,8 @@ const TravelogueDetail = () => {
     if (likeBusy || !travelogue) return;
     setLikeBusy(true);
     try {
-      if (travelogue.likedByMe) {
-        await unlikeTravelogue(id);
-      } else {
-        await likeTravelogue(id);
-      }
+      if (travelogue.likedByMe) await unlikeTravelogue(id);
+      else await likeTravelogue(id);
       await load();
     } catch (err) {
       alert(err.message || '좋아요 실패');
@@ -91,228 +81,237 @@ const TravelogueDetail = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-[#464555] font-['Inter']">
-        여행기 불러오는 중...
-      </div>
-    );
-  }
-
-  if (error || !travelogue) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-6 text-center">
-        <div>
-          <p className="font-['Inter'] text-red-700 mb-3">{error || '여행기를 찾을 수 없습니다.'}</p>
-          <Link to="/" className="text-[#4f46e5] underline font-semibold">홈으로</Link>
-        </div>
-      </div>
-    );
-  }
-
-  // 해시태그 자동 (city + travel duration)
-  const days = travelogue.days?.length || 0;
-  const hashtags = [
-    travelogue.city && `#${travelogue.city}`,
-    travelogue.country && `#${travelogue.country}`,
-    days > 0 && `#${days}일여행`,
-    travelogue.author?.nickname && `#${travelogue.author.nickname}`,
-  ].filter(Boolean);
-
   return (
-    <div className="bg-white text-on-background font-body-md min-h-screen pb-[120px]">
-      {/* 표지 이미지 */}
-      <div className="relative w-full h-[260px] bg-[#d3e4fe] overflow-hidden">
-        {travelogue.coverImageUrl && (
-          <img
-            alt=""
-            src={travelogue.coverImageUrl}
-            className="w-full h-full object-cover"
-            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-          />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+    <div className="mock-page">
+      <div className="device">
+        <header className="mock-header">
+          <button type="button" className="header-btn" onClick={() => navigate(-1)}>
+            ←
+          </button>
+          <div className="header-title">여행기</div>
+          <button type="button" className="header-btn">⋯</button>
+        </header>
 
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="absolute top-3 left-3 size-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-md"
-          aria-label="뒤로"
-        >
-          <span className="material-symbols-outlined text-[#0b1c30] text-[22px]" aria-hidden>
-            arrow_back
-          </span>
-        </button>
-      </div>
+        <main className="main">
+          {loading && <p className="muted">여행기 불러오는 중...</p>}
+          {error && !loading && <div className="error-box">{error}</div>}
 
-      <main className="max-w-xl mx-auto w-full px-6 pt-6">
-        {/* 타이틀 + 메타 */}
-        <h1 className="font-['Plus_Jakarta_Sans'] font-bold text-[26px] leading-tight text-[#0b1c30]">
-          {travelogue.title}
-        </h1>
-        <div className="mt-1 flex items-center gap-1 text-[#464555]">
-          <span className="material-symbols-outlined text-[16px]" aria-hidden>calendar_month</span>
-          <span className="font-['Inter'] text-[14px]">{formatRange(travelogue.travelStartDate, travelogue.travelEndDate)}</span>
-        </div>
+          {!loading && !error && travelogue && (
+            <>
+              {/* 작가 행 */}
+              <div className="author-row">
+                <span className="ava">
+                  {(travelogue.author?.nickname || 'U').charAt(0).toUpperCase()}
+                </span>
+                <div>
+                  <div className="who">{travelogue.author?.nickname || '여행자'}</div>
+                  <div className="when">
+                    {travelogue.publishedAt
+                      ? new Date(travelogue.publishedAt).toLocaleDateString('ko-KR')
+                      : '발행일 미상'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn ghost sm"
+                  style={{ width: 'auto', padding: '0 14px', marginLeft: 'auto' }}
+                >
+                  + 팔로우
+                </button>
+              </div>
 
-        {/* 작성자 */}
-        <div className="mt-4 flex items-center gap-2">
-          <div className="size-9 rounded-full bg-gradient-to-br from-[#a78bfa] to-[#4f46e5] flex items-center justify-center text-white font-semibold text-[14px]">
-            {travelogue.author?.nickname?.charAt(0) || 'U'}
-          </div>
-          <div className="flex flex-col">
-            <span className="font-['Inter'] font-semibold text-[14px] text-[#0b1c30]">
-              {travelogue.author?.nickname || '여행자'}
-            </span>
-            <span className="font-['Inter'] text-[11px] text-[#777587]">
-              ❤️ {travelogue.likeCount} · 📥 {travelogue.scrapCount} · 👁 {travelogue.viewCount}
-            </span>
-          </div>
-        </div>
-
-        {/* 요약 */}
-        {travelogue.summary && (
-          <p className="mt-4 font-['Inter'] text-[15px] text-[#464555] leading-6">
-            {travelogue.summary}
-          </p>
-        )}
-
-        {/* 해시태그 */}
-        {hashtags.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {hashtags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full bg-[#f8f9ff] border border-[#e2e8f0] px-3 py-1 font-['Inter'] text-[12px] text-[#464555]"
+              {/* 큰 cover — coverImageUrl 우선, 없으면 도시 기반 Unsplash fallback */}
+              {(() => {
+                const cover =
+                  travelogue.coverImageUrl || cityPhotoUrl(travelogue.city, 900);
+                return (
+              <div
+                className="cover-banner"
+                style={
+                  cover
+                    ? {
+                        backgroundImage: `linear-gradient(135deg, rgba(93,168,197,0.35), rgba(15,23,42,0.55)), url('${cover}')`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                      }
+                    : undefined
+                }
               >
-                {tag}
-              </span>
-            ))}
+                <div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      opacity: 0.92,
+                      fontWeight: 600,
+                      marginBottom: 4,
+                    }}
+                  >
+                    {travelogue.city || ''}
+                    {travelogue.travelStartDate && travelogue.travelEndDate && (
+                      <>
+                        {' · '}
+                        {Math.round(
+                          (new Date(travelogue.travelEndDate) -
+                            new Date(travelogue.travelStartDate)) /
+                            86400000,
+                        ) + 1}
+                        일
+                      </>
+                    )}
+                  </div>
+                  <div className="city">{travelogue.city || '여행기'}</div>
+                </div>
+              </div>
+                );
+              })()}
+
+              {/* 제목 */}
+              <h1 className="title">{travelogue.title}</h1>
+
+              {/* 통계 */}
+              <div className="stats-row" style={{ margin: '10px 0 16px' }}>
+                <div className="stat">❤️ <strong>{travelogue.likeCount || 0}</strong></div>
+                <div className="stat">📥 <strong>{travelogue.scrapCount || 0}</strong></div>
+                <div className="stat">👁 <strong>{travelogue.viewCount || 0}</strong></div>
+                <div className="stat">💬 <strong>{travelogue.commentCount || 0}</strong></div>
+              </div>
+
+              {/* 메타 chip */}
+              <div style={{ marginBottom: 16 }}>
+                {travelogue.city && <span className="chip">🗾 {travelogue.city}</span>}
+                {travelogue.country && <span className="chip gray">{travelogue.country}</span>}
+                {travelogue.days?.length > 0 && (
+                  <span className="chip coral">
+                    {travelogue.days.length}일 일정
+                  </span>
+                )}
+              </div>
+
+              {/* AI 추천 근거 박스 (RAG 셀링) */}
+              <div className="info-box" style={{ marginBottom: 18 }}>
+                <span className="label">💡 RAG 2-Layer 추천 — 이 일정의 비밀</span>
+                {travelogue.summary ||
+                  '사용자 history pattern + 현재 여행 조건을 매칭해 RAG가 개인화한 일정입니다.'}
+              </div>
+
+              {/* 본문 */}
+              {travelogue.summary && (
+                <div
+                  style={{
+                    fontSize: 13,
+                    lineHeight: 1.75,
+                    color: 'var(--text)',
+                    marginBottom: 18,
+                  }}
+                >
+                  <p>{travelogue.summary}</p>
+                </div>
+              )}
+
+              {/* Day 미니 카드 */}
+              {travelogue.days?.length > 0 && (
+                <>
+                  <h2 className="section-title">📔 일정 한눈에 보기</h2>
+                  {travelogue.days.map((day) => (
+                    <DayMini key={day.dayId} day={day} />
+                  ))}
+                </>
+              )}
+
+              {/* 댓글 */}
+              <h2 className="section-title">
+                💬 댓글 {travelogue.commentCount || 0}
+              </h2>
+              {(travelogue.comments?.length > 0 ? travelogue.comments : DEMO_COMMENTS).map(
+                (c, i) => (
+                  <div className="comment" key={c.id || i}>
+                    <span className="ava">
+                      {(c.author?.nickname || c.who || 'U').charAt(0).toUpperCase()}
+                    </span>
+                    <div style={{ flex: 1 }}>
+                      <div>
+                        <span className="who">
+                          {c.author?.nickname || c.who || '익명'}
+                        </span>
+                        <span className="when">{c.when || '방금'}</span>
+                      </div>
+                      <div className="text">{c.content || c.text}</div>
+                    </div>
+                  </div>
+                ),
+              )}
+
+              <div style={{ height: 100 }} />
+            </>
+          )}
+        </main>
+
+        {!loading && !error && travelogue && (
+          <div className="action-bar">
+            <button
+              type="button"
+              className={`icon-btn${travelogue.likedByMe ? ' active' : ''}`}
+              onClick={toggleLike}
+              disabled={likeBusy}
+              aria-label="좋아요"
+            >
+              ❤️
+            </button>
+            <button
+              type="button"
+              className="btn coral"
+              style={{ flex: 1 }}
+              onClick={handleScrap}
+              disabled={scraping}
+            >
+              {scraping ? '담는 중...' : '📥 내 일정으로 가져오기'}
+            </button>
+            <button type="button" className="icon-btn" aria-label="댓글">
+              💬
+            </button>
           </div>
         )}
 
-        {/* Day별 블록 */}
-        <section className="mt-8 flex flex-col gap-8">
-          {travelogue.days?.map((day) => (
-            <DayBlocks key={day.dayId} day={day} />
-          ))}
-        </section>
-      </main>
-
-      {/* 하단 floating CTA */}
-      <footer className="fixed bottom-0 w-full max-w-xl mx-auto left-0 right-0 px-4 pb-6 pt-3 bg-white/95 backdrop-blur-sm flex gap-2">
-        <button
-          type="button"
-          onClick={toggleLike}
-          disabled={likeBusy}
-          className={`size-14 rounded-xl border flex items-center justify-center transition-colors ${
-            travelogue.likedByMe
-              ? 'border-[#ef4444] bg-[#fef2f2] text-[#ef4444]'
-              : 'border-[#e2e8f0] bg-white text-[#777587]'
-          }`}
-          aria-label="좋아요"
-        >
-          <span
-            className="material-symbols-outlined text-[24px]"
-            style={travelogue.likedByMe ? { fontVariationSettings: "'FILL' 1" } : undefined}
-            aria-hidden
-          >
-            favorite
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={handleScrap}
-          disabled={scraping}
-          className="flex-1 h-14 rounded-xl bg-[#4f46e5] text-white font-['Inter'] text-[15px] font-semibold flex items-center justify-center gap-2 hover:bg-[#3525cd] active:scale-[0.99] disabled:bg-[#c7c4d8] transition-all"
-        >
-          <span
-            className="material-symbols-outlined text-[20px]"
-            style={{ fontVariationSettings: "'FILL' 1" }}
-            aria-hidden
-          >
-            download
-          </span>
-          {scraping ? '담는 중...' : '내 일정으로 담기'}
-        </button>
-      </footer>
+        <BottomNav />
+      </div>
     </div>
   );
 };
 
-// ─────────────────────────────────────────────
-// Day의 블록들 렌더링 — TEXT / IMAGE / PLACE
-// ─────────────────────────────────────────────
-const DayBlocks = ({ day }) => {
-  const placeBlocks = day.blocks?.filter((b) => b.blockType === 'PLACE') || [];
+const DayMini = ({ day }) => {
+  const placeBlocks = (day.blocks || []).filter((b) => b.blockType === 'PLACE');
   return (
-    <article>
-      <h2 className="font-['Plus_Jakarta_Sans'] font-bold text-[20px] text-[#0b1c30] mb-3">
-        Day {day.dayNumber}
-      </h2>
-      <div className="flex flex-col gap-4">
-        {day.blocks?.map((block, idx) => {
-          if (block.blockType === 'TEXT') {
-            return (
-              <p key={block.blockId} className="font-['Inter'] text-[15px] text-[#464555] leading-7 whitespace-pre-line">
-                {block.content}
-              </p>
-            );
-          }
-          if (block.blockType === 'IMAGE') {
-            return (
-              <img
-                key={block.blockId}
-                src={block.imageUrl}
-                alt=""
-                className="w-full rounded-xl object-cover"
-                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-              />
-            );
-          }
-          if (block.blockType === 'PLACE' && block.place) {
-            const placeIdx = placeBlocks.findIndex((b) => b.blockId === block.blockId) + 1;
-            const badge = badgeFor(block.place.category);
-            return (
-              <div key={block.blockId} className="bg-white border border-[#e2e8f0] rounded-xl p-4 shadow-[0_2px_4px_rgba(0,0,0,0.02)]">
-                <div className="flex items-start gap-3">
-                  <span className={`shrink-0 size-7 rounded-full text-white text-[12px] font-bold flex items-center justify-center ${
-                    placeIdx <= 3 ? 'bg-[#4f46e5]' : 'bg-[#a78bfa]'
-                  }`}>
-                    {placeIdx}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-['Plus_Jakarta_Sans'] font-semibold text-[17px] text-[#0b1c30] leading-tight">
-                        {block.place.name}
-                      </h3>
-                      <span
-                        className="shrink-0 rounded px-2 py-0.5 font-['Inter'] text-[10px] font-medium uppercase tracking-wide"
-                        style={{ backgroundColor: badge.bg, color: badge.text }}
-                      >
-                        {badge.label}
-                      </span>
-                    </div>
-                    {block.place.address && (
-                      <p className="mt-1 font-['Inter'] text-[12px] text-[#777587]">
-                        {block.place.address}
-                      </p>
-                    )}
-                    {block.placeMemo && (
-                      <p className="mt-2 font-['Inter'] text-[14px] text-[#464555] leading-6">
-                        {block.placeMemo}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          }
-          return null;
-        })}
+    <div className="mini-day">
+      <span className="day-tag">Day {day.dayNumber}</span>
+      <div className="places">
+        {placeBlocks.length === 0 ? (
+          <span className="muted">슬롯이 비어 있어요</span>
+        ) : (
+          placeBlocks.map((b, i) => (
+            <React.Fragment key={b.blockId || i}>
+              {emojiForPlace(b.place)} {b.place?.name || '장소'}
+              {i < placeBlocks.length - 1 && <span className="dot">·</span>}
+            </React.Fragment>
+          ))
+        )}
       </div>
-    </article>
+    </div>
   );
 };
+
+const DEMO_COMMENTS = [
+  {
+    id: 'd1',
+    who: 'minho',
+    when: '1일 전',
+    text: '추천 진짜 공감... 부모님이랑 가니까 정말 좋아하시더라구요 🙏',
+  },
+  {
+    id: 'd2',
+    who: 'yuri',
+    when: '1일 전',
+    text: 'Deep Copy 받아갑니다! 다음달에 그대로 쓸게요 ❤️',
+  },
+];
 
 export default TravelogueDetail;

@@ -1,40 +1,42 @@
-// src/pages/MyTrips.jsx — Figma node 1:10253 + BE itineraries 연동
+// src/pages/MyTrips.jsx — Triple 톤 mock UI (mock 직접 도안 없음 — 일관 톤 적용)
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
-import { fetchMyItineraries } from '../api/itineraries';
+import { fetchMyItineraries, deleteItinerary } from '../api/itineraries';
+import { cityPhotoUrl } from '../utils/cityPhotos';
 
-const TripCardMenu = () => (
-  <button
-    type="button"
-    className="flex items-center justify-center p-[5.5px] rounded-lg text-[#464555] hover:bg-slate-100/80"
-    aria-label="More options"
-    onClick={(e) => e.preventDefault()}
-  >
-    <span className="material-symbols-outlined text-[18px] text-[#94a3b8]" aria-hidden>
-      more_horiz
-    </span>
-  </button>
-);
-
-function tripStatus(startDate, endDate) {
-  if (!startDate || !endDate) return 'upcoming';
+// 라이프사이클: status=DRAFT → 임시저장. status=ACTIVE 는 today vs 날짜로 sub-status 계산.
+function tripStatus(trip) {
+  if (trip.status === 'DRAFT' || !trip.startDate || !trip.endDate) return 'draft';
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = new Date(trip.startDate);
+  const end = new Date(trip.endDate);
   if (today > end) return 'completed';
   if (today >= start && today <= end) return 'active';
   return 'upcoming';
 }
+
+const STATUS = {
+  draft: { label: '임시저장', emoji: '📝' },
+  active: { label: '여행 중', emoji: '📍' },
+  upcoming: { label: '다가오는 여행', emoji: '✈️' },
+  completed: { label: '다녀온 여행', emoji: '✓' },
+};
+
+const SECTIONS = [
+  { key: 'upcoming', title: '다가오는 여행', empty: '다가오는 여행이 없어요.' },
+  { key: 'active', title: '여행 중', empty: null },
+  { key: 'completed', title: '다녀온 여행', empty: null },
+  { key: 'draft', title: '임시저장 (담기 전)', empty: null },
+];
 
 function formatRange(start, end) {
   if (!start || !end) return '';
   const opt = { month: 'short', day: '2-digit' };
   const s = new Date(start);
   const e = new Date(end);
-  const year = e.getFullYear();
-  return `${s.toLocaleDateString('en-US', opt)} - ${e.toLocaleDateString('en-US', opt)}, ${year}`;
+  return `${s.toLocaleDateString('en-US', opt)} – ${e.toLocaleDateString('en-US', opt)}, ${e.getFullYear()}`;
 }
 
 function parseThemes(themes) {
@@ -45,114 +47,11 @@ function parseThemes(themes) {
   return [];
 }
 
-const STATUS_BADGE = {
-  upcoming: {
-    bg: 'bg-[#c9e6ff]',
-    text: 'text-[#001e2f]',
-    icon: 'flight',
-    label: 'Upcoming',
-  },
-  active: {
-    bg: 'bg-[#4f46e5]',
-    text: 'text-white',
-    icon: 'location_on',
-    label: 'Active Now',
-  },
-  completed: {
-    bg: 'bg-[#d3e4fe]',
-    text: 'text-[#464555]',
-    icon: 'check_circle',
-    label: 'Completed',
-  },
-};
-
-const TripCard = ({ trip }) => {
-  const status = tripStatus(trip.startDate, trip.endDate);
-  const badge = STATUS_BADGE[status];
-  const themes = parseThemes(trip.themes);
-  const isActive = status === 'active';
-  const isCompleted = status === 'completed';
-
-  const wrapClass = isActive
-    ? 'bg-white border border-[#c3c0ff] rounded-xl p-[23px] shadow-[0_0_0_1px_#4f46e5,0_4px_11px_rgba(53,37,205,0.02)] relative overflow-hidden block w-full text-left'
-    : isCompleted
-    ? 'bg-[#f8f9ff] border border-[#d3e4fe] rounded-xl p-[23px] opacity-80 block w-full text-left'
-    : 'relative overflow-hidden bg-white border border-[#d3e4fe] rounded-xl p-[23px] shadow-[0_4px_11px_rgba(53,37,205,0.02)] block w-full text-left';
-
-  return (
-    <Link to={`/trips/${trip.id}`} className={wrapClass}>
-      {!isActive && !isCompleted && (
-        <div
-          className="absolute h-[120px] left-0 right-0 top-0 pointer-events-none rounded-t-xl"
-          style={{
-            backgroundImage:
-              'linear-gradient(160.77deg, rgba(195, 192, 255, 0.3) 0%, rgb(255, 255, 255) 100%)',
-          }}
-          aria-hidden
-        />
-      )}
-      <div className="relative flex flex-col">
-        <div className="flex items-start justify-between pb-[22px]">
-          <div className={`inline-flex items-center gap-[5.5px] rounded-full ${badge.bg} px-[11px] py-[5.5px]`}>
-            <span
-              className={`material-symbols-outlined ${badge.text} text-[14px]`}
-              aria-hidden
-            >
-              {badge.icon}
-            </span>
-            <span className={`font-['Inter'] text-[13px] font-medium ${badge.text} tracking-[0.26px]`}>
-              {badge.label}
-            </span>
-          </div>
-          <TripCardMenu />
-        </div>
-        <div className="relative flex flex-col gap-[5.5px]">
-          <h2 className="font-['Plus_Jakarta_Sans'] font-semibold text-[22px] leading-7 text-[#0b1c30]">
-            {trip.title || `${trip.city || 'Trip'}`}
-          </h2>
-          <div className="flex items-center gap-[5.5px] text-[#464555]">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden>
-              calendar_month
-            </span>
-            <span className="font-['Inter'] text-[16px] leading-6">
-              {formatRange(trip.startDate, trip.endDate)}
-            </span>
-          </div>
-          {themes.length > 0 && (
-            <div className="flex flex-wrap gap-[5.5px] pt-4">
-              {themes.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-md bg-[#d3e4fe] px-[11px] py-0.5 font-['Inter'] text-[11px] text-[#464555] leading-[16.5px]"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </Link>
-  );
-};
-
-const Skeleton = () => (
-  <div className="bg-white border border-[#d3e4fe] rounded-xl p-[23px] shadow-[0_4px_5.5px_rgba(53,37,205,0.02)] animate-pulse">
-    <div className="flex items-start justify-between pb-[22px]">
-      <div className="h-[26px] w-[100px] rounded-full bg-[#d3e4fe]" />
-      <div className="size-6 rounded-full bg-[#d3e4fe]" />
-    </div>
-    <div className="pt-[11px] flex flex-col gap-[5.5px]">
-      <div className="h-7 w-[225px] max-w-full rounded-md bg-[#d3e4fe]" />
-      <div className="h-5 w-[150px] rounded-md bg-[#d3e4fe]" />
-    </div>
-  </div>
-);
-
 const MyTrips = () => {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -160,7 +59,6 @@ const MyTrips = () => {
       try {
         const data = await fetchMyItineraries({ size: 30 });
         if (cancelled) return;
-        // BE는 list endpoint가 array 또는 { items, nextCursor } 형태 둘 다 가능 — defensive
         const list = Array.isArray(data) ? data : data?.items || [];
         setTrips(list);
       } catch (err) {
@@ -174,101 +72,215 @@ const MyTrips = () => {
     };
   }, []);
 
+  const handleDelete = async (e, tripId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm('이 일정을 삭제하시겠습니까?')) return;
+    setDeletingId(tripId);
+    try {
+      await deleteItinerary(tripId);
+      setTrips((prev) => prev.filter((t) => t.id !== tripId));
+    } catch (err) {
+      alert(err.message || '삭제 실패');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
-    <div
-      className="min-h-screen isolate flex flex-col items-start pb-[140px] pt-[44px] selection:bg-primary-container selection:text-on-primary-container"
-      style={{
-        backgroundImage:
-          'linear-gradient(90deg, rgb(248, 249, 255) 0%, rgb(248, 249, 255) 100%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)',
-      }}
-    >
-      <header className="fixed top-0 w-full z-[2] backdrop-blur-[6px] bg-white/80 border-b border-[#e2e8f0] shadow-[0_1px_1px_rgba(0,0,0,0.05)] max-w-xl mx-auto left-0 right-0">
-        <div className="flex items-center justify-between px-5 py-3 max-w-xl mx-auto w-full">
-          <div className="flex items-center gap-[11px]">
-            <span
-              className="material-symbols-outlined text-[#4f46e5] text-xl"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-              aria-hidden
-            >
-              travel_explore
-            </span>
-            <span className="font-['Plus_Jakarta_Sans'] font-extrabold text-[20px] leading-7 tracking-tight text-[#4f46e5]">
-              TripLog AI
-            </span>
-          </div>
-          <div
-            className="size-8 rounded-full bg-[#d3e4fe] border border-[#c7c4d8] flex items-center justify-center shrink-0"
-            aria-hidden
-          >
-            <span className="font-['Inter'] text-[13px] font-medium text-[#464555] tracking-[0.26px]">UP</span>
-          </div>
-        </div>
-      </header>
+    <div className="mock-page">
+      <div className="device">
+        <header className="mock-header">
+          <Link to="/" className="header-logo" style={{ textDecoration: 'none' }}>
+            <span className="dot" />
+            TripLog<span style={{ color: 'var(--accent)', marginLeft: 2 }}>AI</span>
+          </Link>
+          <div style={{ flex: 1 }} />
+          <button className="header-btn" type="button" aria-label="검색">🔍</button>
+        </header>
 
-      <main className="max-w-xl mx-auto w-full z-[1] flex flex-col gap-11 px-[22px] pt-11">
-        <div className="flex flex-col gap-[5.5px]">
-          <h1 className="font-['Plus_Jakarta_Sans'] font-semibold text-[32px] leading-10 tracking-[-0.32px] text-[#0b1c30]">
-            My Trips
-          </h1>
-          <p className="font-['Inter'] text-[16px] text-[#464555] leading-6">
-            Your travel history and upcoming adventures.
-          </p>
-        </div>
+        <main className="main">
+          <h1 className="title" style={{ fontSize: 26 }}>My Trips</h1>
+          <p className="subtitle">내 여행 일정과 다가오는 모험</p>
 
-        <div className="flex flex-col gap-[22px] w-full">
           {loading && (
             <>
-              <Skeleton />
-              <Skeleton />
+              <SkeletonCard />
+              <SkeletonCard />
             </>
           )}
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center font-['Inter'] text-[14px] text-red-700">
-              {error}
-            </div>
-          )}
+          {error && !loading && <div className="error-box">{error}</div>}
 
           {!loading && !error && trips.length === 0 && (
-            <div className="bg-white border border-[#d3e4fe] rounded-xl p-8 text-center">
-              <span className="material-symbols-outlined text-[#94a3b8] text-[48px]" aria-hidden>
-                travel_explore
-              </span>
-              <h3 className="mt-3 font-['Plus_Jakarta_Sans'] font-semibold text-[18px] text-[#0b1c30]">
-                아직 일정이 없습니다
-              </h3>
-              <p className="mt-1 font-['Inter'] text-[14px] text-[#464555]">
-                AI로 첫 여행 일정을 만들어보세요.
-              </p>
+            <div className="empty">
+              <div className="ico">📔</div>
+              <p>아직 일정이 없어요.</p>
               <Link
                 to="/create"
-                className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#4f46e5] text-white font-['Inter'] text-[14px] font-semibold hover:bg-[#3525cd] transition-colors"
+                className="btn primary sm"
+                style={{
+                  marginTop: 12,
+                  width: 200,
+                  marginInline: 'auto',
+                  textDecoration: 'none',
+                }}
               >
-                <span className="material-symbols-outlined text-[18px]" aria-hidden>
-                  auto_awesome
-                </span>
-                Create with AI
+                ✨ AI 일정 만들기
               </Link>
             </div>
           )}
 
-          {!loading && !error && trips.map((trip) => <TripCard key={trip.id} trip={trip} />)}
-        </div>
-      </main>
+          {/* 라이프사이클 sub-status 별 section 분리 */}
+          {!loading && !error && trips.length > 0 && (() => {
+            const grouped = trips.reduce((acc, trip) => {
+              const s = tripStatus(trip);
+              (acc[s] = acc[s] || []).push(trip);
+              return acc;
+            }, {});
+            return SECTIONS.map((section) => {
+              const list = grouped[section.key] || [];
+              if (list.length === 0) return null;
+              return (
+                <div key={section.key} style={{ marginBottom: 22 }}>
+                  <h2 className="section-title" style={{ marginTop: 0 }}>{section.title}</h2>
+                  {list.map((trip) => (
+                    <TripCard
+                      key={trip.id}
+                      trip={trip}
+                      status={section.key}
+                      deletingId={deletingId}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                </div>
+              );
+            });
+          })()}
 
-      <Link
-        to="/create"
-        className="md:hidden fixed z-[3] right-[22px] bottom-[110px] size-14 rounded-2xl bg-[#4f46e5] shadow-[0_8px_11px_rgba(53,37,205,0.2)] flex items-center justify-center text-white hover:opacity-95 active:scale-95 transition-transform"
-        aria-label="Create new trip"
-      >
-        <span className="material-symbols-outlined text-[28px]" aria-hidden>
-          add
-        </span>
-      </Link>
+          <div style={{ height: 80 }} />
+        </main>
 
-      <BottomNav />
+        {/* FAB */}
+        <Link
+          to="/create"
+          style={{
+            position: 'fixed',
+            right: 18,
+            bottom: 100,
+            width: 56,
+            height: 56,
+            borderRadius: 16,
+            background: 'var(--primary)',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 28,
+            textDecoration: 'none',
+            boxShadow: '0 8px 18px rgba(93,168,197,0.4)',
+            zIndex: 25,
+          }}
+          aria-label="새 일정"
+        >
+          +
+        </Link>
+
+        <BottomNav />
+      </div>
     </div>
   );
 };
+
+const TripCard = ({ trip, status, deletingId, onDelete }) => {
+  const meta = STATUS[status];
+  const themes = parseThemes(trip.themes);
+  const cover = cityPhotoUrl(trip.city);
+  return (
+    <Link
+      to={`/trips/${trip.id}`}
+      className={`trip-card${status === 'active' ? ' active' : ''}${
+        status === 'completed' ? ' completed' : ''
+      }`}
+    >
+      <div
+        className="trip-cover"
+        style={
+          cover
+            ? {
+                backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.4) 100%), url('${cover}')`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                color: '#fff',
+              }
+            : undefined
+        }
+      >
+        <span className={`trip-status ${status}`}>
+          {meta.emoji} {meta.label}
+        </span>
+      </div>
+      <h3 style={{ fontSize: 16, fontWeight: 800, margin: '0 0 4px' }}>
+        {trip.title || trip.city || '여행 일정'}
+      </h3>
+      <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>
+        {trip.startDate && trip.endDate
+          ? `📅 ${formatRange(trip.startDate, trip.endDate)}`
+          : '📅 날짜 미정 — 담기 전'}
+      </div>
+      {themes.length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          {themes.slice(0, 4).map((t) => (
+            <span key={t} className="chip gray">{t}</span>
+          ))}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={(e) => onDelete(e, trip.id)}
+        disabled={deletingId === trip.id}
+        style={{
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          width: 28,
+          height: 28,
+          borderRadius: '50%',
+          border: 0,
+          background: 'rgba(255,255,255,0.85)',
+          cursor: 'pointer',
+          fontSize: 14,
+          color: 'var(--text-mute)',
+        }}
+        aria-label="삭제"
+      >
+        ⋯
+      </button>
+    </Link>
+  );
+};
+
+const SkeletonCard = () => (
+  <div className="trip-card" style={{ pointerEvents: 'none' }}>
+    <div className="trip-cover" />
+    <div
+      style={{
+        height: 18,
+        width: '60%',
+        background: 'var(--bg-soft)',
+        borderRadius: 6,
+        marginBottom: 8,
+      }}
+    />
+    <div
+      style={{
+        height: 14,
+        width: '40%',
+        background: 'var(--bg-soft)',
+        borderRadius: 6,
+      }}
+    />
+  </div>
+);
 
 export default MyTrips;

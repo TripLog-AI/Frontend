@@ -4,8 +4,11 @@ import Home from './pages/Home';
 import ViewTrip from './pages/ViewTrip';
 import MyTrips from './pages/MyTrips';
 import CreateTrip from './pages/CreateTrip';
+import CreateTripManual from './pages/CreateTripManual';
 import Login from './pages/Login';
 import TravelogueDetail from './pages/TravelogueDetail';
+import TraveloguePublish from './pages/TraveloguePublish';
+import YoutubeImport from './pages/YoutubeImport';
 import AuthGuard from './components/AuthGuard';
 
 function App() {
@@ -42,6 +45,30 @@ function App() {
           element={
             <AuthGuard>
               <CreateTrip />
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/create/manual"
+          element={
+            <AuthGuard>
+              <CreateTripManual />
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/travelogues/new"
+          element={
+            <AuthGuard>
+              <TraveloguePublish />
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/youtube/import"
+          element={
+            <AuthGuard>
+              <YoutubeImport />
             </AuthGuard>
           }
         />

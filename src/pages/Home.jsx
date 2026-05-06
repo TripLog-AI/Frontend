@@ -1,20 +1,53 @@
-// src/pages/Home.jsx — Figma node 1:10372 + BE youtube-courses + travelogue feed (RAG)
+// src/pages/Home.jsx — Triple 톤 mock UI 적용 (ui_mock/01_home.html 기반)
+// Hero + 빠른 진입(2카드) + 인기 추천 코스(가로) + YouTube 큐레이션 + 여행기 미리보기
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
-import { fetchYoutubeCourses, saveYoutubeCourse } from '../api/youtube';
+import { fetchYoutubeCourses } from '../api/youtube';
 import { fetchTravelogueFeed } from '../api/travelogues';
 import { fetchMyItineraries } from '../api/itineraries';
+import { cityPhotoUrl, genericCoverUrl, heroBackgroundUrl } from '../utils/cityPhotos';
 
-const imgUserProfile =
-  'https://www.figma.com/api/mcp/asset/97f9232d-9e3a-4c78-a5dc-ff88c9ca4faf';
-const imgHeroSection =
-  'https://www.figma.com/api/mcp/asset/8ba68486-425f-4eff-9fdf-e5b02f2b3858';
+// 시연용 인기 코스 (BE에 인기 코스 엔드포인트 없음 — RAG 셀링용 정적 데이터)
+// ui_mock/01_home.html 에서 검증된 Unsplash hotlink 그대로 사용.
+const FEATURED_COURSES = [
+  {
+    id: 'tokyo-parents',
+    emoji: '🗾',
+    city: '도쿄',
+    duration: '4박 5일',
+    title: '부모님과 여유로운 도쿄',
+    creator: 'jiwon',
+    likes: 234,
+    photo: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?w=600&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 'bali-honey',
+    emoji: '🏝️',
+    city: '발리',
+    duration: '5박 6일',
+    title: '신혼여행 발리 풀빌라 코스',
+    creator: 'yuri',
+    likes: 189,
+    photo: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=600&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 'jeju-east',
+    emoji: '🍊',
+    city: '제주',
+    duration: '2박 3일',
+    title: '제주 동부 자연 일주',
+    creator: 'minho',
+    likes: 156,
+    photo: 'https://images.unsplash.com/photo-1517722014278-c256a91a6fba?w=600&auto=format&fit=crop&q=80',
+  },
+];
 
-const fallbackThumbnail = (idx) =>
-  `https://picsum.photos/seed/triplog-course-${idx}/600/400`;
-const fallbackCreator = (idx) =>
-  `https://i.pravatar.cc/80?img=${(idx % 70) + 1}`;
+// YouTube 큐레이션용 fallback 사진 (mock 01 검증된 hotlink)
+const YOUTUBE_COVER_FALLBACK = [
+  'https://images.unsplash.com/photo-1480796927426-f609979314bd?w=600&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1601985705806-5b9a71f6004f?w=600&auto=format&fit=crop&q=80',
+];
 
 function formatDuration(seconds) {
   if (!seconds || typeof seconds !== 'number') return null;
@@ -23,136 +56,27 @@ function formatDuration(seconds) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-function mapCourseToGuide(course, idx) {
-  const rawTitle = course.title || 'Curated Course';
-  // Title을 두 줄로 — 한글이면 단어 단위가 아니라 길이 기준으로 split
-  let titleLines;
-  if (rawTitle.includes('|')) {
-    titleLines = rawTitle.split('|').map((s) => s.trim()).slice(0, 2);
-  } else if (rawTitle.length > 18) {
-    const mid = Math.floor(rawTitle.length / 2);
-    const breakAt = rawTitle.indexOf(' ', mid) > 0 ? rawTitle.indexOf(' ', mid) : mid;
-    titleLines = [rawTitle.slice(0, breakAt).trim(), rawTitle.slice(breakAt).trim()];
-  } else {
-    titleLines = [rawTitle];
-  }
-  const desc = [];
-  if (course.city) desc.push(course.city);
-  if (course.country) desc.push(course.country);
-  if (desc.length === 0) desc.push('AI-curated route');
-  return {
-    id: course.id,
-    image: course.thumbnailUrl || fallbackThumbnail(idx),
-    duration: formatDuration(course.durationSeconds) || course.duration || 'Featured',
-    title: titleLines,
-    description: desc.slice(0, 2),
-    creator: course.creatorAvatarUrl || fallbackCreator(idx),
-    creatorName: course.channelName || course.youtubeAuthor || course.creatorName || 'TripLog AI',
-    views: course.viewCount ? `${course.viewCount} views` : 'Featured',
-  };
-}
-
-const GuideCard = ({ item, onClick }) => {
-  const inner = (
-    <>
-      <div className="relative h-[220px] w-full overflow-hidden">
-        <img
-          alt=""
-          className="absolute w-full h-[158%] max-w-none left-0 top-[-29%] object-cover"
-          src={item.image}
-          onError={(e) => {
-            e.currentTarget.src = fallbackThumbnail(item.id || 0);
-          }}
-        />
-        <div className="absolute top-3 left-3 backdrop-blur-sm bg-white/90 flex items-center gap-1 rounded-md px-2 py-1">
-          <span className="material-symbols-outlined text-on-surface text-sm" aria-hidden>
-            play_circle
-          </span>
-          <span className="font-['Inter'] text-[13px] font-medium text-on-surface tracking-wide">
-            {item.duration}
-          </span>
-        </div>
-      </div>
-      <div className="p-[22px] flex flex-col gap-2">
-        <h3 className="font-['Plus_Jakarta_Sans'] font-semibold text-[22px] leading-7 text-on-surface">
-          {item.title.map((line, i) => (
-            <span key={i} className="block">
-              {line}
-            </span>
-          ))}
-        </h3>
-        <div className="font-['Inter'] text-body-md text-on-surface-variant leading-6">
-          {item.description.map((line, i) => (
-            <p key={i}>{line}</p>
-          ))}
-        </div>
-        <div className="flex items-center justify-between pt-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="size-8 rounded-full bg-surface-variant overflow-hidden shrink-0">
-              <img
-                alt=""
-                className="w-full h-full object-cover"
-                src={item.creator}
-                onError={(e) => {
-                  e.currentTarget.src = fallbackCreator(item.id || 0);
-                }}
-              />
-            </div>
-            <span className="font-['Inter'] text-[13px] font-medium text-on-surface-variant tracking-wide truncate">
-              {item.creatorName}
-            </span>
-          </div>
-          <span className="font-['Inter'] text-[13px] font-medium text-[#777587] tracking-wide shrink-0">
-            {item.views}
-          </span>
-        </div>
-      </div>
-    </>
-  );
-
-  const wrapClass =
-    'bg-white border border-outline-variant rounded-lg shadow-[0_4px_11px_rgba(53,37,205,0.02)] overflow-hidden block w-full text-left';
-
-  if (onClick) {
-    return (
-      <button
-        type="button"
-        onClick={() => onClick(item)}
-        className={`${wrapClass} cursor-pointer hover:shadow-md transition-shadow active:scale-[0.99]`}
-      >
-        {inner}
-      </button>
-    );
-  }
-  return <article className={wrapClass}>{inner}</article>;
-};
-
 const Home = () => {
-  const navigate = useNavigate();
   const [guides, setGuides] = useState([]);
   const [travelogues, setTravelogues] = useState([]);
-  const [historyPattern, setHistoryPattern] = useState(null); // {countries: [...], main: 'Malaysia'}
+  const [historyPattern, setHistoryPattern] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [savingId, setSavingId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        // 병렬로 youtube-courses + travelogues + my history 모두 fetch
         const [coursesRaw, traveloguesRaw, historyRaw] = await Promise.all([
-          fetchYoutubeCourses({ size: 10 }).catch(() => null),
-          fetchTravelogueFeed({ size: 20 }).catch(() => null),
+          fetchYoutubeCourses({ size: 6 }).catch(() => null),
+          fetchTravelogueFeed({ size: 12 }).catch(() => null),
           fetchMyItineraries({ size: 10 }).catch(() => null),
         ]);
         if (cancelled) return;
 
-        // youtube-courses
         const coursesList = Array.isArray(coursesRaw) ? coursesRaw : coursesRaw?.items || [];
-        setGuides(coursesList.map(mapCourseToGuide));
+        setGuides(coursesList.slice(0, 2));
 
-        // 사용자 history pattern 추출 (RAG Layer 2 시각화)
+        // RAG Layer 2 — history pattern
         const myItineraries = Array.isArray(historyRaw) ? historyRaw : historyRaw?.items || [];
         const countryCounts = {};
         myItineraries.forEach((it) => {
@@ -160,25 +84,22 @@ const Home = () => {
         });
         const sortedCountries = Object.entries(countryCounts).sort((a, b) => b[1] - a[1]);
         if (sortedCountries.length > 0) {
-          setHistoryPattern({
-            countries: sortedCountries.map(([c]) => c),
-            main: sortedCountries[0][0],
-          });
+          setHistoryPattern({ main: sortedCountries[0][0] });
         }
 
-        // 여행기 피드 — history pattern 매칭 우선 정렬
+        // 여행기 — history 매칭 우선
         const tlList = Array.isArray(traveloguesRaw) ? traveloguesRaw : traveloguesRaw?.items || [];
-        const matchCountries = sortedCountries.map(([c]) => c);
         const sea = ['Malaysia', 'Vietnam', 'Indonesia', 'Thailand', 'Singapore', 'Philippines'];
+        const matchCountries = sortedCountries.map(([c]) => c);
         const isSEA = matchCountries.some((c) => sea.includes(c));
         const sorted = [...tlList].sort((a, b) => {
           const aMatch = matchCountries.includes(a.country) || (isSEA && sea.includes(a.country));
           const bMatch = matchCountries.includes(b.country) || (isSEA && sea.includes(b.country));
           return (bMatch ? 1 : 0) - (aMatch ? 1 : 0);
         });
-        setTravelogues(sorted);
-      } catch (err) {
-        if (!cancelled) setError(err.message || '데이터를 불러오지 못했습니다.');
+        setTravelogues(sorted.slice(0, 3));
+      } catch {
+        // silent — 시연용
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -188,204 +109,312 @@ const Home = () => {
     };
   }, []);
 
-  // RAG personalize 그리팅 — 사용자 history 기반
   const personalizedGreeting = (() => {
     if (!historyPattern) return null;
     const sea = ['Malaysia', 'Vietnam', 'Indonesia', 'Thailand', 'Singapore', 'Philippines'];
-    if (sea.includes(historyPattern.main)) {
-      return '동남아 여행지를 좋아하시는 분께 추천하는 여행기';
-    }
-    if (['Japan', 'South Korea', 'China', 'Taiwan'].includes(historyPattern.main)) {
-      return '동아시아 여행지를 좋아하시는 분께 추천하는 여행기';
-    }
-    return `${historyPattern.main} 스타일 여행을 좋아하시는 분께`;
+    if (sea.includes(historyPattern.main)) return '동남아 휴양형 여행자';
+    if (['Japan', 'South Korea', 'China', 'Taiwan'].includes(historyPattern.main))
+      return '동아시아 여행자';
+    return `${historyPattern.main} 여행 스타일`;
   })();
 
-  const handlePickCourse = async (item) => {
-    if (savingId) return;
-    setSavingId(item.id);
-    try {
-      const result = await saveYoutubeCourse(item.id);
-      if (result?.itineraryId) {
-        navigate(`/trips/${result.itineraryId}`);
-      } else {
-        navigate('/trips');
-      }
-    } catch (err) {
-      alert(`저장에 실패했습니다: ${err.message}`);
-    } finally {
-      setSavingId(null);
-    }
-  };
-
-  const heroBg = `linear-gradient(180deg, rgba(248, 249, 255, 0.8) 0%, rgba(248, 249, 255, 0.9) 100%), url(${imgHeroSection}), linear-gradient(90deg, rgb(220, 233, 255) 0%, rgb(220, 233, 255) 100%)`;
-
   return (
-    <div className="bg-background text-on-background font-body-md min-h-screen pt-[44px] pb-[88px] selection:bg-primary-container selection:text-on-primary-container">
-      <header className="fixed top-0 w-full z-[2] backdrop-blur-md bg-white/80 border-b border-slate-200 shadow-sm flex items-center justify-between px-5 py-3 max-w-xl mx-auto left-0 right-0">
-        <div className="flex items-center gap-2 p-2 rounded-lg">
-          <span
-            className="material-symbols-outlined text-primary-container text-xl"
-            style={{ fontVariationSettings: "'FILL' 1" }}
-            aria-hidden
+    <div className="mock-page">
+      <div className="device">
+        <header className="mock-header">
+          <div className="header-logo">
+            <span className="dot" />
+            TripLog
+            <span style={{ color: 'var(--accent)', marginLeft: 2 }}>AI</span>
+          </div>
+          <div style={{ flex: 1 }} />
+          <button className="header-btn" type="button" aria-label="알림">🔔</button>
+          <Link to="/trips" className="header-btn" aria-label="내 일정">👤</Link>
+        </header>
+
+        <main className="main">
+          {/* Hero — 도쿄 스카이라인 사진 + 컬러 그라데이션 오버레이 (mock 01 패턴) */}
+          <section
+            className="hero"
+            style={{
+              backgroundImage: `linear-gradient(135deg, rgba(93,168,197,0.25), rgba(15,40,60,0.55)), url('${heroBackgroundUrl()}')`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }}
           >
-            travel_explore
-          </span>
-          <span className="font-['Inter'] font-bold text-[20px] leading-7 tracking-tight text-primary-container">
-            TripLog AI
-          </span>
-        </div>
-        <Link
-          to="/trips"
-          className="size-10 rounded-full border border-outline-variant overflow-hidden bg-surface-variant shrink-0 flex items-center justify-center"
-          aria-label="My trips"
-        >
-          <span className="material-symbols-outlined text-[#464555] text-[18px]" aria-hidden>
-            person
-          </span>
-        </Link>
-      </header>
-
-      <main className="max-w-xl mx-auto w-full px-5 pt-8 pb-12 flex flex-col gap-12 z-[1]">
-        <section
-          className="relative flex flex-col items-center justify-center min-h-[300px] rounded-2xl border border-outline-variant shadow-sm p-8 overflow-hidden"
-          style={{
-            backgroundImage: heroBg,
-            backgroundSize: 'auto, cover, auto',
-            backgroundPosition: 'center, center, center',
-          }}
-        >
-          <div className="relative z-[1] flex flex-col items-center w-full">
-            <h1 className="font-['Plus_Jakarta_Sans'] font-bold text-[44px] leading-[52px] tracking-[-0.88px] text-on-surface text-center pb-4">
-              <span className="block">Discover Your</span>
-              <span className="block">Next Journey</span>
+            <div className="hero-eyebrow">✨ 흩어진 정보를 한 줄로</div>
+            <h1 className="hero-title">
+              어디로<br />떠나시나요?
             </h1>
-            <p className="font-['Inter'] text-[18px] text-on-surface-variant text-center leading-7 max-w-[280px] pb-8">
-              Let AI craft your perfect itinerary
-              <br />
-              or explore trending travel
-              <br />
-              courses curated just for you.
-            </p>
+            <p className="hero-sub">5분 입력 → 30초 안에 맞춤 일정 받기</p>
+            <Link to="/create" className="btn">AI 맞춤 일정 만들기 →</Link>
+          </section>
 
+          {/* 빠른 진입 3-갈래 — 직접 짜기 / AI / YouTube (Slide 4 라이프사이클) */}
+          <section
+            style={{
+              marginTop: 18,
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gap: 8,
+            }}
+          >
+            <Link
+              to="/create/manual"
+              className="card"
+              style={{
+                textAlign: 'center',
+                padding: '14px 6px',
+                border: '1.5px solid var(--border)',
+                background: 'var(--bg)',
+                textDecoration: 'none',
+                color: 'inherit',
+                marginTop: 12,
+              }}
+            >
+              <div style={{ fontSize: 24, marginBottom: 4 }}>📝</div>
+              <div style={{ fontSize: 12, fontWeight: 700 }}>직접 짜기</div>
+              <div style={{ fontSize: 10, color: 'var(--text-soft)', marginTop: 2 }}>
+                슬롯 자유 편집
+              </div>
+            </Link>
             <Link
               to="/create"
-              className="w-full max-w-xl bg-primary text-white rounded-lg shadow-sm flex items-center justify-center gap-2 h-14 font-['Inter'] text-[15px] font-semibold tracking-wide hover:bg-[#2818b3] active:scale-[0.99] transition-all"
+              className="card"
+              style={{
+                textAlign: 'center',
+                padding: '14px 6px',
+                border: '1.5px solid var(--primary-soft)',
+                background: 'var(--primary-soft)',
+                textDecoration: 'none',
+                color: 'inherit',
+              }}
             >
-              <span
-                className="material-symbols-outlined text-white text-[20px]"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-                aria-hidden
-              >
-                auto_awesome
-              </span>
-              <span>Create with AI</span>
+              <div style={{ fontSize: 24, marginBottom: 4 }}>✨</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary-darker)' }}>
+                AI 맞춤
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--primary-deep)', marginTop: 2 }}>
+                30초 완성
+              </div>
             </Link>
+            <Link
+              to="/youtube/import"
+              className="card"
+              style={{
+                textAlign: 'center',
+                padding: '14px 6px',
+                border: '1.5px solid var(--accent-soft)',
+                background: 'var(--accent-soft)',
+                textDecoration: 'none',
+                color: 'inherit',
+              }}
+            >
+              <div style={{ fontSize: 24, marginBottom: 4 }}>▶️</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-deep)' }}>
+                YouTube URL
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--accent-deep)', marginTop: 2, opacity: 0.8 }}>
+                vlog 그대로
+              </div>
+            </Link>
+          </section>
+
+          {/* 인기 추천 코스 */}
+          <h2 className="section-title">🔥 인기 추천 코스</h2>
+          <div className="scroll-row">
+            {FEATURED_COURSES.map((c) => (
+              <Link key={c.id} to="/create" className="course-card">
+                <div
+                  className="course-cover"
+                  style={{
+                    backgroundImage: `linear-gradient(180deg, transparent 30%, rgba(0,0,0,0.55)), url('${c.photo}')`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    justifyContent: 'flex-end',
+                  }}
+                >
+                  <div style={{ textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+                    <div style={{ fontSize: 18, fontWeight: 900 }}>
+                      {c.emoji} {c.city}
+                    </div>
+                    <div style={{ opacity: 0.95, fontWeight: 600 }}>{c.duration}</div>
+                  </div>
+                </div>
+                <div className="course-body">
+                  <h4 className="course-title">{c.title}</h4>
+                  <div className="course-meta">
+                    <span className="avatar">{c.creator.charAt(0).toUpperCase()}</span>
+                    {c.creator}
+                    <span style={{ marginLeft: 'auto' }}>❤️ {c.likes}</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
           </div>
-        </section>
 
-        {/* ★ RAG Layer 2 — 사용자 history 기반 personalize 여행기 피드 */}
-        {travelogues.length > 0 && (
-          <section className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              {personalizedGreeting && (
-                <span className="font-['Inter'] text-[13px] font-semibold text-[#4f46e5] tracking-tight">
-                  ✨ {personalizedGreeting}
-                </span>
-              )}
-              <h2 className="font-['Plus_Jakarta_Sans'] font-semibold text-[26px] leading-tight text-on-surface">
-                다른 여행자들의 여행기
+          {/* YouTube 큐레이션 */}
+          {guides.length > 0 && (
+            <>
+              <h2 className="section-title">▶️ YouTube 큐레이션 코스</h2>
+              {guides.map((g, idx) => (
+                <YoutubeCourseCard key={g.id || idx} course={g} idx={idx} />
+              ))}
+            </>
+          )}
+
+          {/* 여행자의 여행기 */}
+          {travelogues.length > 0 && (
+            <>
+              <h2 className="section-title">
+                ✍️ {personalizedGreeting ? `${personalizedGreeting}을 위한 여행기` : '여행자의 여행기'}
               </h2>
-            </div>
-
-            <div className="flex gap-3 overflow-x-auto -mx-5 px-5 pb-2 snap-x snap-mandatory">
-              {travelogues.slice(0, 8).map((tl) => (
+              {travelogues.map((tl, idx) => {
+                const cover =
+                  tl.coverImageUrl ||
+                  cityPhotoUrl(tl.city) ||
+                  genericCoverUrl(idx);
+                return (
                 <Link
                   key={tl.id}
                   to={`/travelogues/${tl.id}`}
-                  className="snap-start shrink-0 w-[260px] bg-white border border-outline-variant rounded-xl overflow-hidden hover:shadow-md transition-shadow"
+                  className="card"
+                  style={{
+                    padding: 0,
+                    overflow: 'hidden',
+                    marginBottom: 12,
+                    display: 'block',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                  }}
                 >
-                  <div className="relative h-[160px] w-full overflow-hidden bg-[#d3e4fe]">
-                    {tl.coverImageUrl && (
-                      <img
-                        alt=""
-                        src={tl.coverImageUrl}
-                        className="w-full h-full object-cover"
-                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                      />
-                    )}
-                    <div className="absolute top-2 left-2 backdrop-blur-sm bg-white/90 rounded-md px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#0b1c30]">
-                      {tl.city}
+                  <div
+                    style={{
+                      height: 110,
+                      backgroundImage: cover
+                        ? `linear-gradient(180deg, transparent 30%, rgba(0,0,0,0.65)), url('${cover}')`
+                        : 'linear-gradient(135deg, #5DA8C5, #EA8775)',
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      padding: 12,
+                      color: '#fff',
+                      display: 'flex',
+                      alignItems: 'flex-end',
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 700, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+                      {tl.title || `${tl.city} 여행기`}
                     </div>
                   </div>
-                  <div className="p-3 flex flex-col gap-1.5">
-                    <h3 className="font-['Plus_Jakarta_Sans'] font-semibold text-[15px] leading-tight text-[#0b1c30] line-clamp-2">
-                      {tl.title}
-                    </h3>
-                    <div className="flex items-center justify-between text-[#777587]">
-                      <span className="font-['Inter'] text-[11px] truncate">
-                        {tl.author?.nickname || '여행자'}
+                  <div style={{ padding: '12px 14px' }}>
+                    <div className="author-row" style={{ marginBottom: 0 }}>
+                      <span className="ava">
+                        {(tl.author?.nickname || 'U').charAt(0).toUpperCase()}
                       </span>
-                      <span className="font-['Inter'] text-[11px] flex items-center gap-2">
-                        <span>❤️ {tl.likeCount}</span>
-                        <span>📥 {tl.scrapCount}</span>
-                      </span>
+                      <div>
+                        <div className="who">{tl.author?.nickname || '여행자'}</div>
+                        <div className="when">
+                          {tl.city || '여행기'} · ❤️ {tl.likeCount || 0}
+                        </div>
+                      </div>
+                      <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-soft)' }}>
+                        📥 {tl.scrapCount || 0}
+                      </div>
                     </div>
                   </div>
                 </Link>
-              ))}
-            </div>
-          </section>
+                );
+              })}
+            </>
+          )}
+
+          {loading && travelogues.length === 0 && guides.length === 0 && (
+            <p className="muted" style={{ marginTop: 24, textAlign: 'center' }}>
+              불러오는 중...
+            </p>
+          )}
+
+          <div style={{ height: 24 }} />
+        </main>
+
+        <BottomNav />
+      </div>
+    </div>
+  );
+};
+
+const YoutubeCourseCard = ({ course, idx }) => {
+  const duration = formatDuration(course.durationSeconds) || course.duration || '';
+  const cover =
+    course.thumbnailUrl ||
+    YOUTUBE_COVER_FALLBACK[idx % YOUTUBE_COVER_FALLBACK.length];
+  const places = (course.places || course.chapters || []).slice(0, 2);
+  return (
+    <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 12 }}>
+      <div
+        style={{
+          height: 150,
+          backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.45)), url('${cover}')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative',
+        }}
+      >
+        <div
+          style={{
+            width: 54,
+            height: 54,
+            borderRadius: '50%',
+            background: 'rgba(255,255,255,0.95)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 22,
+            color: 'var(--accent)',
+          }}
+        >
+          ▶
+        </div>
+        {duration && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 8,
+              right: 10,
+              background: 'rgba(0,0,0,0.7)',
+              color: '#fff',
+              fontSize: 10,
+              padding: '3px 6px',
+              borderRadius: 4,
+              fontWeight: 600,
+            }}
+          >
+            {duration}
+          </div>
         )}
-
-        <section className="flex flex-col gap-6">
-          <div className="flex items-start justify-between gap-4">
-            <h2 className="font-['Plus_Jakarta_Sans'] font-semibold text-[32px] leading-10 tracking-[-0.32px] text-on-surface">
-              <span className="block">Trending Travel</span>
-              <span className="block">Guides</span>
-            </h2>
-            <Link
-              to="/trips"
-              className="flex items-center gap-1 font-['Inter'] text-[13px] font-medium text-primary tracking-wide shrink-0 pt-1"
-            >
-              <span className="flex flex-col items-end leading-[18px]">
-                <span>My</span>
-                <span>Trips</span>
+      </div>
+      <div style={{ padding: '12px 14px' }}>
+        <h4 style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700 }}>
+          {course.title || 'Curated Course'}
+        </h4>
+        {places.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+            {places.map((p, i) => (
+              <span key={i} className="chip gray">
+                📍 {typeof p === 'string' ? p : p.name || p.title}
               </span>
-              <span className="material-symbols-outlined text-primary text-sm" aria-hidden>
-                chevron_right
-              </span>
-            </Link>
-          </div>
-
-          <div className="flex flex-col gap-6">
-            {loading && (
-              <div className="bg-white border border-outline-variant rounded-lg p-6 text-center font-['Inter'] text-[14px] text-on-surface-variant">
-                추천 코스를 불러오는 중...
-              </div>
-            )}
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center font-['Inter'] text-[14px] text-red-700">
-                {error}
-              </div>
-            )}
-            {!loading && !error && guides.length === 0 && (
-              <div className="bg-white border border-outline-variant rounded-lg p-6 text-center font-['Inter'] text-[14px] text-on-surface-variant">
-                추천 코스가 아직 없습니다. AI로 새 일정을 만들어보세요.
-              </div>
-            )}
-            {guides.map((g) => (
-              <GuideCard
-                key={g.id}
-                item={g}
-                onClick={savingId ? undefined : handlePickCourse}
-              />
             ))}
+            {(course.places?.length || course.chapters?.length || 0) > 2 && (
+              <span className="chip gray">
+                +{(course.places?.length || course.chapters?.length) - 2}
+              </span>
+            )}
           </div>
-        </section>
-      </main>
-
-      <BottomNav />
+        )}
+      </div>
     </div>
   );
 };

@@ -1,84 +1,58 @@
-// src/pages/CreateTrip.jsx — Triple식 5-step wizard (객관식 wizard)
-// Multi-step: 기간 → 동행 → 페이스 → 스타일 → 도시 → AI generate
+// src/pages/CreateTrip.jsx — Triple 톤 mock UI (ui_mock/02_wizard_city + 03_wizard_theme)
+// 5-step wizard: 도시 → 기간 → 동행 → 페이스 → 스타일 → 생성중
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  generateAiItinerary,
-  parseYoutubeItinerary,
-  pollAiRequest,
-} from '../api/itineraries';
+import BottomNav from '../components/BottomNav';
+import { generateAiItinerary, pollAiRequest } from '../api/itineraries';
 
-// ─── Step 1: 기간 (객관식 + custom) ─────────────────────────────
-const DURATION_OPTIONS = [
-  { id: 'd1', label: '당일치기', days: 1 },
-  { id: 'd2', label: '1박 2일', days: 2 },
-  { id: 'd3', label: '2박 3일', days: 3 },
-  { id: 'd4', label: '3박 4일', days: 4 },
-  { id: 'd5', label: '4박 5일', days: 5 },
-  { id: 'd6', label: '5박 6일', days: 6 },
-];
-
-// ─── Step 2: 동행 (다중 선택) — BE는 첫번째만 사용 ──────────────
-const COMPANION_OPTIONS = [
-  { id: 'SOLO', label: '혼자' },
-  { id: 'FRIENDS', label: '친구와' },
-  { id: 'COUPLE', label: '연인과' },
-  { id: 'COUPLE2', label: '배우자와', mapsTo: 'COUPLE' },
-  { id: 'FAMILY', label: '아이와' },
-  { id: 'PARENTS', label: '부모님과' },
-  { id: 'OTHER', label: '기타', mapsTo: 'FRIENDS' },
-];
-
-// ─── Step 3: 페이스 ─────────────────────────────────────────────
-const PACE_OPTIONS = [
-  { id: 'RELAXED', label: '여유롭게', sub: '하루 3곳' },
-  { id: 'NORMAL', label: '보통', sub: '하루 4곳' },
-  { id: 'PACKED', label: '빼곡하게', sub: '하루 6곳' },
-];
-
-// ─── Step 4: 스타일 (다중 선택, BE themes 매핑) ─────────────────
-const STYLE_OPTIONS = [
-  { id: 'activity', label: '체험·액티비티', themes: ['NATURE'] },
-  { id: 'sns', label: 'SNS 핫플', themes: ['CULTURE'] },
-  { id: 'nature', label: '자연과 함께', themes: ['NATURE'] },
-  { id: 'famous', label: '유명 관광지', themes: ['CULTURE'] },
-  { id: 'relax', label: '여유롭게 힐링', themes: ['RELAX'] },
-  { id: 'culture', label: '문화·예술·역사', themes: ['CULTURE'] },
-  { id: 'feel', label: '여행지 느낌 물씬', themes: ['CULTURE', 'NATURE'] },
-  { id: 'shopping', label: '쇼핑은 열정적', themes: ['SHOPPING'] },
-  { id: 'food', label: '관광보다 먹방', themes: ['FOOD'] },
-];
-
-// ─── Step 5: 도시 (국가 그룹) ───────────────────────────────────
+// ─── Step 1: 도시 (국가 그룹) ──────────────────
 const CITY_GROUPS = [
   {
-    country: '일본',
-    countryCode: 'Japan',
-    cities: ['도쿄', '오사카', '교토', '후쿠오카', '삿포로', '오키나와'],
+    country: '🇯🇵 일본',
+    cities: [
+      { name: '도쿄', emoji: '🗾' },
+      { name: '오사카', emoji: '🏯' },
+      { name: '교토', emoji: '⛩️' },
+      { name: '후쿠오카', emoji: '🍜' },
+      { name: '삿포로', emoji: '❄️' },
+      { name: '오키나와', emoji: '🏖️' },
+    ],
   },
   {
-    country: '동남아',
-    countryCode: 'SEA',
-    cities: ['방콕', '쿠알라룸푸르', '싱가포르', '발리', '코타키나발루', '다낭'],
+    country: '🌴 동남아',
+    cities: [
+      { name: '발리', emoji: '🏝️' },
+      { name: '다낭', emoji: '🌊' },
+      { name: '방콕', emoji: '🛕' },
+      { name: '싱가포르', emoji: '🌃' },
+      { name: '코타키나발루', emoji: '🌅' },
+      { name: '쿠알라룸푸르', emoji: '🏙️' },
+    ],
   },
   {
-    country: '대한민국',
-    countryCode: 'South Korea',
-    cities: ['서울', '부산', '제주', '강릉·속초', '경주', '여수'],
+    country: '🇰🇷 한국',
+    cities: [
+      { name: '서울', emoji: '🏙️' },
+      { name: '부산', emoji: '🌊' },
+      { name: '제주', emoji: '🍊' },
+      { name: '강릉·속초', emoji: '⛱️' },
+      { name: '경주', emoji: '🏯' },
+      { name: '여수', emoji: '🌅' },
+    ],
   },
   {
-    country: '유럽',
-    countryCode: 'Europe',
-    cities: ['파리', '로마', '바르셀로나', '런던', '암스테르담', '프라하'],
-  },
-  {
-    country: '기타',
-    countryCode: 'Other',
-    cities: ['뉴욕', '두바이', '이스탄불', '시드니', '홍콩', '대만'],
+    country: '🌍 유럽 · 기타',
+    cities: [
+      { name: '파리', emoji: '🗼' },
+      { name: '로마', emoji: '🏛️' },
+      { name: '바르셀로나', emoji: '⛪' },
+      { name: '런던', emoji: '🎡' },
+      { name: '뉴욕', emoji: '🗽' },
+      { name: '대만', emoji: '🥟' },
+    ],
   },
 ];
 
-// 한글 도시 → 영문 city 매핑 (AI 호출용)
 const CITY_KO_TO_EN = {
   도쿄: 'Tokyo', 오사카: 'Osaka', 교토: 'Kyoto', 후쿠오카: 'Fukuoka',
   삿포로: 'Sapporo', 오키나와: 'Okinawa',
@@ -87,11 +61,8 @@ const CITY_KO_TO_EN = {
   서울: 'Seoul', 부산: 'Busan', 제주: 'Jeju',
   '강릉·속초': 'Gangneung', 경주: 'Gyeongju', 여수: 'Yeosu',
   파리: 'Paris', 로마: 'Rome', 바르셀로나: 'Barcelona',
-  런던: 'London', 암스테르담: 'Amsterdam', 프라하: 'Prague',
-  뉴욕: 'New York', 두바이: 'Dubai', 이스탄불: 'Istanbul',
-  시드니: 'Sydney', 홍콩: 'Hong Kong', 대만: 'Taipei',
+  런던: 'London', 뉴욕: 'New York', 대만: 'Taipei',
 };
-
 const CITY_TO_COUNTRY = {
   Tokyo: 'Japan', Osaka: 'Japan', Kyoto: 'Japan', Fukuoka: 'Japan',
   Sapporo: 'Japan', Okinawa: 'Japan',
@@ -100,12 +71,58 @@ const CITY_TO_COUNTRY = {
   Seoul: 'South Korea', Busan: 'South Korea', Jeju: 'South Korea',
   Gangneung: 'South Korea', Gyeongju: 'South Korea', Yeosu: 'South Korea',
   Paris: 'France', Rome: 'Italy', Barcelona: 'Spain',
-  London: 'United Kingdom', Amsterdam: 'Netherlands', Prague: 'Czech Republic',
-  'New York': 'USA', Dubai: 'United Arab Emirates', Istanbul: 'Turkey',
-  Sydney: 'Australia', 'Hong Kong': 'China', Taipei: 'Taiwan',
+  London: 'United Kingdom', 'New York': 'USA', Taipei: 'Taiwan',
 };
 
+// ─── Step 2: 기간 ─────────────────────────────
+const DURATION_OPTIONS = [
+  { id: 'd1', label: '당일치기', emoji: '☀️', days: 1 },
+  { id: 'd2', label: '1박 2일', emoji: '🌙', days: 2 },
+  { id: 'd3', label: '2박 3일', emoji: '🌙', days: 3 },
+  { id: 'd4', label: '3박 4일', emoji: '🌙', days: 4 },
+  { id: 'd5', label: '4박 5일', emoji: '🌙', days: 5 },
+  { id: 'd6', label: '5박 6일', emoji: '🌙', days: 6 },
+];
+
+// ─── Step 3: 동행 (다중) ───────────────────────
+const COMPANION_OPTIONS = [
+  { id: 'SOLO', label: '혼자', emoji: '🚶' },
+  { id: 'FRIENDS', label: '친구와', emoji: '👫' },
+  { id: 'COUPLE', label: '연인과', emoji: '💑' },
+  { id: 'COUPLE2', label: '배우자와', emoji: '💍', mapsTo: 'COUPLE' },
+  { id: 'FAMILY', label: '아이와', emoji: '👨‍👩‍👧' },
+  { id: 'PARENTS', label: '부모님과', emoji: '👵', mapsTo: 'FAMILY' },
+];
+
+// ─── Step 4: 페이스 ───────────────────────────
+const PACE_OPTIONS = [
+  { id: 'RELAXED', label: '여유롭게', emoji: '🛌', sub: '하루 3곳' },
+  { id: 'NORMAL', label: '보통', emoji: '🚶', sub: '하루 4곳' },
+  { id: 'PACKED', label: '빼곡하게', emoji: '🏃', sub: '하루 6곳' },
+];
+
+// ─── Step 5: 스타일 (다중, themes 매핑) ─────────
+const STYLE_OPTIONS = [
+  { id: 'food', label: '먹방', emoji: '🍜', themes: ['FOOD'] },
+  { id: 'culture', label: '문화·역사', emoji: '🏛️', themes: ['CULTURE'] },
+  { id: 'nature', label: '자연', emoji: '🌿', themes: ['NATURE'] },
+  { id: 'shopping', label: '쇼핑', emoji: '🛍️', themes: ['SHOPPING'] },
+  { id: 'relax', label: '여유 힐링', emoji: '🛌', themes: ['RELAX'] },
+  { id: 'sns', label: 'SNS 핫플', emoji: '📷', themes: ['CULTURE'] },
+  { id: 'music', label: '음악·공연', emoji: '🎵', themes: ['MUSIC'] },
+  { id: 'activity', label: '액티비티', emoji: '🎢', themes: ['NATURE'] },
+  { id: 'tradition', label: '전통 체험', emoji: '🏯', themes: ['CULTURE'] },
+];
+
 const TOTAL_STEPS = 5;
+
+const STEP_TITLE = [
+  { title: '떠나고 싶은 도시는?', sub: '도시 1곳을 선택해 주세요' },
+  { title: '여행 기간은?', sub: '머무를 기간을 골라 주세요' },
+  { title: '누구와 떠나요?', sub: '다중 선택이 가능해요' },
+  { title: '여행 페이스는?', sub: '하루에 몇 곳을 갈지 정해요' },
+  { title: '선호하는 스타일은?', sub: '관심 있는 테마를 모두 선택해 주세요 · 다중 선택' },
+];
 
 function todayPlus(days) {
   const d = new Date();
@@ -115,73 +132,57 @@ function todayPlus(days) {
 
 const CreateTrip = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(0); // 0~4 = 5 steps. 5 = generating.
-  const [duration, setDuration] = useState(null); // {id, days}
-  const [companions, setCompanions] = useState([]); // ids
-  const [pace, setPace] = useState('NORMAL');
-  const [styles, setStyles] = useState([]); // style ids
+  const [step, setStep] = useState(0); // 0~4 (5 = generating)
   const [cityKo, setCityKo] = useState(null);
-
-  // YouTube URL 모드 (5/7는 미시연이지만 input은 둠)
-  const [youtubeUrl, setYoutubeUrl] = useState('');
-
+  const [duration, setDuration] = useState(null);
+  const [companions, setCompanions] = useState([]);
+  const [pace, setPace] = useState('NORMAL');
+  const [styles, setStyles] = useState([]);
   const [stepLabel, setStepLabel] = useState('');
   const [error, setError] = useState(null);
 
   const canProceed = (() => {
     switch (step) {
-      case 0: return !!duration;
-      case 1: return companions.length > 0;
-      case 2: return !!pace;
-      case 3: return styles.length > 0;
-      case 4: return !!cityKo;
+      case 0: return !!cityKo;
+      case 1: return !!duration;
+      case 2: return companions.length > 0;
+      case 3: return !!pace;
+      case 4: return styles.length > 0;
       default: return false;
     }
   })();
 
-  const toggleCompanion = (id) => {
-    setCompanions((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
-    );
-  };
-  const toggleStyle = (id) => {
-    setStyles((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
-    );
+  const toggle = (setter, list) => (id) => {
+    setter(list.includes(id) ? list.filter((c) => c !== id) : [...list, id]);
   };
 
   const handleNext = () => {
     if (!canProceed) return;
-    if (step < TOTAL_STEPS - 1) {
-      setStep(step + 1);
-    } else {
-      handleGenerate();
-    }
+    if (step < TOTAL_STEPS - 1) setStep(step + 1);
+    else handleGenerate();
   };
 
   const handleBack = () => {
-    if (step > 0) setStep(step - 1);
+    if (step > 0 && step < TOTAL_STEPS) setStep(step - 1);
+    else if (step >= TOTAL_STEPS) setStep(TOTAL_STEPS - 1);
     else navigate(-1);
   };
 
   const handleGenerate = async () => {
     setError(null);
-    setStep(5); // generating screen
+    setStep(TOTAL_STEPS); // generating screen
 
     try {
       const cityEn = CITY_KO_TO_EN[cityKo] || cityKo;
       const country = CITY_TO_COUNTRY[cityEn] || '';
-
       const days = duration.days;
       const startDate = todayPlus(7);
       const endDate = todayPlus(7 + Math.max(1, days) - 1);
 
-      // companions 다중 → BE 단일 (첫번째 사용, mapsTo 적용)
       const firstComp = companions[0];
       const compOpt = COMPANION_OPTIONS.find((c) => c.id === firstComp);
       const companionType = compOpt?.mapsTo || compOpt?.id || 'SOLO';
 
-      // styles 다중 → BE themes 배열 (중복 제거)
       const themesSet = new Set();
       styles.forEach((sid) => {
         const opt = STYLE_OPTIONS.find((o) => o.id === sid);
@@ -189,294 +190,300 @@ const CreateTrip = () => {
       });
       const themes = Array.from(themesSet);
 
-      let requestId;
-      if (youtubeUrl.trim()) {
-        setStepLabel('Parsing video transcript...');
-        const res = await parseYoutubeItinerary({ youtubeUrl: youtubeUrl.trim() });
-        requestId = res.requestId;
-      } else {
-        setStepLabel('AI generating with RAG...');
-        const res = await generateAiItinerary({
-          city: cityEn,
-          country,
-          startDate,
-          endDate,
-          companionType,
-          themes,
-          pace,
-        });
-        requestId = res.requestId;
-      }
-
+      setStepLabel('AI가 RAG로 후보를 모으는 중...');
+      const res = await generateAiItinerary({
+        city: cityEn, country, startDate, endDate, companionType, themes, pace,
+      });
+      const requestId = res.requestId;
       if (!requestId) throw new Error('AI 요청 ID를 받지 못했습니다.');
 
-      setStepLabel('Mapping geographical points...');
+      setStepLabel('지리 클러스터로 동선을 묶는 중...');
       const result = await pollAiRequest(requestId, { intervalMs: 1500, timeoutMs: 90000 });
 
       if (result.status === 'COMPLETED' && result.itineraryId) {
-        setStepLabel('Finalizing itinerary...');
+        setStepLabel('일정을 마무리하는 중...');
         navigate(`/trips/${result.itineraryId}`);
       } else {
         throw new Error(result.errorMessage || 'AI 생성에 실패했습니다.');
       }
     } catch (err) {
       setError(err.message || '생성 실패');
-      setStep(TOTAL_STEPS - 1); // 마지막 step으로 복귀
+      setStep(TOTAL_STEPS - 1);
     }
   };
 
+  const progress = step < TOTAL_STEPS ? ((step + 1) / TOTAL_STEPS) * 100 : 100;
+
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      {/* Header */}
-      <header className="fixed top-0 w-full z-[2] backdrop-blur-[6px] bg-white/90 border-b border-[#f3f4f6] max-w-xl mx-auto left-0 right-0">
-        <div className="flex h-12 items-center justify-between px-4">
-          <button
-            type="button"
-            onClick={handleBack}
-            className="size-9 rounded-full flex items-center justify-center hover:bg-slate-100"
-            aria-label="Back"
-          >
-            <span className="material-symbols-outlined text-[#0b1c30] text-[22px]" aria-hidden>
-              arrow_back
-            </span>
+    <div className="mock-page">
+      <div className="device">
+        <header className="mock-header">
+          <button type="button" className="header-btn" onClick={handleBack} aria-label="뒤로">
+            ←
           </button>
-          {step < TOTAL_STEPS && (
-            <span className="font-['Inter'] text-[14px] font-semibold text-[#4f46e5] tracking-tight">
+          <div className="header-title">AI 맞춤 일정 만들기</div>
+          {step < TOTAL_STEPS ? (
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: 'var(--primary-deep)',
+                width: 36,
+                textAlign: 'right',
+              }}
+            >
               {step + 1}/{TOTAL_STEPS}
-            </span>
+            </div>
+          ) : (
+            <div className="header-spacer" />
           )}
-          <div className="size-9" />
-        </div>
-      </header>
+        </header>
 
-      <main className="flex-1 max-w-xl w-full mx-auto px-6 pt-[60px] pb-[120px] flex flex-col">
-        {step === 0 && <Step1Duration duration={duration} setDuration={setDuration} />}
-        {step === 1 && <Step2Companion companions={companions} toggleCompanion={toggleCompanion} />}
-        {step === 2 && <Step3Pace pace={pace} setPace={setPace} />}
-        {step === 3 && <Step4Style styles={styles} toggleStyle={toggleStyle} />}
-        {step === 4 && (
-          <Step5City cityKo={cityKo} setCityKo={setCityKo} youtubeUrl={youtubeUrl} setYoutubeUrl={setYoutubeUrl} />
+        <main className="main loose">
+          {step < TOTAL_STEPS && (
+            <>
+              <div className="progress">
+                <div className="progress-fill" style={{ width: `${progress}%` }} />
+              </div>
+              <h1 className="title">{STEP_TITLE[step].title}</h1>
+              <p className="subtitle">{STEP_TITLE[step].sub}</p>
+            </>
+          )}
+
+          {step === 0 && (
+            <CityStep cityKo={cityKo} setCityKo={setCityKo} />
+          )}
+
+          {step === 1 && (
+            <div className="option-grid cols-3">
+              {DURATION_OPTIONS.map((opt) => (
+                <OptionCard
+                  key={opt.id}
+                  emoji={opt.emoji}
+                  label={opt.label}
+                  selected={duration?.id === opt.id}
+                  onClick={() => setDuration(opt)}
+                />
+              ))}
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="option-grid cols-3">
+              {COMPANION_OPTIONS.map((opt) => (
+                <OptionCard
+                  key={opt.id}
+                  emoji={opt.emoji}
+                  label={opt.label}
+                  selected={companions.includes(opt.id)}
+                  onClick={() => toggle(setCompanions, companions)(opt.id)}
+                />
+              ))}
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="option-grid cols-3">
+              {PACE_OPTIONS.map((opt) => (
+                <OptionCard
+                  key={opt.id}
+                  emoji={opt.emoji}
+                  label={opt.label}
+                  sub={opt.sub}
+                  selected={pace === opt.id}
+                  onClick={() => setPace(opt.id)}
+                />
+              ))}
+            </div>
+          )}
+
+          {step === 4 && (
+            <>
+              <div className="option-grid cols-3">
+                {STYLE_OPTIONS.map((opt) => (
+                  <OptionCard
+                    key={opt.id}
+                    emoji={opt.emoji}
+                    label={opt.label}
+                    selected={styles.includes(opt.id)}
+                    onClick={() => toggle(setStyles, styles)(opt.id)}
+                  />
+                ))}
+              </div>
+
+              {/* 선택 요약 */}
+              <h2 className="section-title">📋 선택하신 조건</h2>
+              <div className="card" style={{ background: 'var(--bg-soft)', border: 0 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+                  {cityKo && <span className="chip">🗾 {cityKo}</span>}
+                  {duration && <span className="chip">{duration.label}</span>}
+                  {companions.map((cid) => {
+                    const o = COMPANION_OPTIONS.find((x) => x.id === cid);
+                    return o && <span key={cid} className="chip">{o.label}</span>;
+                  })}
+                  {pace && (
+                    <span className="chip">
+                      {PACE_OPTIONS.find((p) => p.id === pace)?.label}
+                    </span>
+                  )}
+                  {styles.map((sid) => {
+                    const o = STYLE_OPTIONS.find((x) => x.id === sid);
+                    return o && <span key={sid} className="chip coral">{o.emoji} {o.label}</span>;
+                  })}
+                </div>
+                <div
+                  style={{
+                    marginTop: 10,
+                    fontSize: 11.5,
+                    color: 'var(--text-soft)',
+                    lineHeight: 1.55,
+                  }}
+                >
+                  💡 사용자 history도 함께 분석되어 RAG Layer 2 개인화로 추천됩니다
+                </div>
+              </div>
+            </>
+          )}
+
+          {step === TOTAL_STEPS && (
+            <GeneratingScreen
+              stepLabel={stepLabel}
+              error={error}
+              onRetry={() => setStep(TOTAL_STEPS - 1)}
+            />
+          )}
+
+          <div style={{ height: 100 }} />
+        </main>
+
+        {step < TOTAL_STEPS && (
+          <div className="cta-fixed">
+            <button
+              type="button"
+              className={`btn ${step === TOTAL_STEPS - 1 ? 'coral' : 'primary'}`}
+              disabled={!canProceed}
+              onClick={handleNext}
+            >
+              {step === TOTAL_STEPS - 1 ? '✨ AI 일정 만들기' : '다음 →'}
+            </button>
+          </div>
         )}
-        {step === 5 && <GeneratingScreen stepLabel={stepLabel} error={error} onRetry={() => setStep(TOTAL_STEPS - 1)} />}
-      </main>
 
-      {/* 하단 Next 버튼 (generating step 제외) */}
-      {step < TOTAL_STEPS && (
-        <footer className="fixed bottom-0 w-full max-w-xl mx-auto left-0 right-0 px-4 pb-6 pt-3 bg-white/95 backdrop-blur-sm">
-          <button
-            type="button"
-            onClick={handleNext}
-            disabled={!canProceed}
-            className={`w-full h-14 rounded-xl font-['Inter'] text-[16px] font-semibold tracking-tight transition-colors ${
-              canProceed
-                ? 'bg-[#4f46e5] text-white hover:bg-[#3525cd] active:scale-[0.99]'
-                : 'bg-[#e5eeff] text-[#94a3b8] cursor-not-allowed'
-            }`}
-          >
-            {step === TOTAL_STEPS - 1 ? '맞춤 일정 받기' : '다음'}
-          </button>
-        </footer>
-      )}
+        <BottomNav />
+      </div>
     </div>
   );
 };
 
-// ════════════════════════════════════════════════════════════════════
-// Step Components
-// ════════════════════════════════════════════════════════════════════
-
-const StepHeader = ({ icon, title, subtitle }) => (
-  <div className="flex flex-col items-center text-center pt-4 pb-8">
-    <span
-      className="material-symbols-outlined text-[#4f46e5] text-[40px] mb-3"
-      style={{ fontVariationSettings: "'FILL' 1" }}
-      aria-hidden
-    >
-      {icon}
-    </span>
-    <h2 className="font-['Plus_Jakarta_Sans'] font-bold text-[28px] leading-9 text-[#0b1c30]">
-      {title}
-    </h2>
-    {subtitle && (
-      <p className="mt-1 font-['Inter'] text-[14px] text-[#777587]">{subtitle}</p>
-    )}
-  </div>
+const CityStep = ({ cityKo, setCityKo }) => (
+  <>
+    {CITY_GROUPS.map((g) => (
+      <div key={g.country}>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: 'var(--text-soft)',
+            letterSpacing: 0.5,
+            margin: '6px 0 10px',
+          }}
+        >
+          {g.country}
+        </div>
+        <div className="option-grid cols-3" style={{ marginBottom: 22 }}>
+          {g.cities.map((c) => (
+            <OptionCard
+              key={c.name}
+              emoji={c.emoji}
+              label={c.name}
+              selected={cityKo === c.name}
+              onClick={() => setCityKo(c.name)}
+            />
+          ))}
+        </div>
+      </div>
+    ))}
+  </>
 );
 
-const Pill = ({ active, children, onClick, twoLine }) => (
+const OptionCard = ({ emoji, label, sub, selected, onClick }) => (
   <button
     type="button"
+    className={`option${selected ? ' selected' : ''}`}
     onClick={onClick}
-    className={`min-h-[48px] px-5 rounded-full border font-['Inter'] text-[15px] font-medium tracking-tight transition-colors ${
-      active
-        ? 'border-[#4f46e5] bg-[rgba(195,192,255,0.15)] text-[#3525cd] font-semibold'
-        : 'border-[#e2e8f0] bg-[#f8f9ff] text-[#0b1c30] hover:border-[#c7c4d8]'
-    } ${twoLine ? 'leading-tight py-2' : ''}`}
   >
-    {children}
+    {emoji && <span className="emoji">{emoji}</span>}
+    {label}
+    {sub && (
+      <div style={{ fontSize: 10.5, color: 'var(--text-soft)', marginTop: 2, fontWeight: 500 }}>
+        {sub}
+      </div>
+    )}
   </button>
-);
-
-const Step1Duration = ({ duration, setDuration }) => (
-  <>
-    <StepHeader icon="calendar_month" title="여행 기간은?" subtitle="원하는 기간을 선택해 주세요." />
-    <div className="grid grid-cols-3 gap-3">
-      {DURATION_OPTIONS.map((opt) => (
-        <Pill
-          key={opt.id}
-          active={duration?.id === opt.id}
-          onClick={() => setDuration(opt)}
-        >
-          {opt.label}
-        </Pill>
-      ))}
-    </div>
-  </>
-);
-
-const Step2Companion = ({ companions, toggleCompanion }) => (
-  <>
-    <StepHeader icon="group" title="누구와 떠나요?" subtitle="다중 선택이 가능해요." />
-    <div className="grid grid-cols-3 gap-3">
-      {COMPANION_OPTIONS.map((opt) => (
-        <Pill
-          key={opt.id}
-          active={companions.includes(opt.id)}
-          onClick={() => toggleCompanion(opt.id)}
-        >
-          {opt.label}
-        </Pill>
-      ))}
-    </div>
-  </>
-);
-
-const Step3Pace = ({ pace, setPace }) => (
-  <>
-    <StepHeader icon="speed" title="여행 페이스는?" subtitle="하루에 몇 곳을 갈지 정해요." />
-    <div className="flex flex-col gap-3">
-      {PACE_OPTIONS.map((opt) => (
-        <button
-          key={opt.id}
-          type="button"
-          onClick={() => setPace(opt.id)}
-          className={`w-full p-4 rounded-xl border text-left flex items-center justify-between transition-colors ${
-            pace === opt.id
-              ? 'border-[#4f46e5] bg-[rgba(195,192,255,0.15)]'
-              : 'border-[#e2e8f0] bg-white hover:border-[#c7c4d8]'
-          }`}
-        >
-          <div>
-            <div className={`font-['Plus_Jakarta_Sans'] text-[18px] font-semibold ${pace === opt.id ? 'text-[#3525cd]' : 'text-[#0b1c30]'}`}>
-              {opt.label}
-            </div>
-            <div className="font-['Inter'] text-[13px] text-[#777587] mt-0.5">{opt.sub}</div>
-          </div>
-          <span
-            className={`size-6 rounded-full border-2 flex items-center justify-center ${
-              pace === opt.id ? 'border-[#4f46e5] bg-[#4f46e5]' : 'border-[#c7c4d8]'
-            }`}
-          >
-            {pace === opt.id && (
-              <span className="material-symbols-outlined text-white text-[16px]" aria-hidden>
-                check
-              </span>
-            )}
-          </span>
-        </button>
-      ))}
-    </div>
-  </>
-);
-
-const Step4Style = ({ styles, toggleStyle }) => (
-  <>
-    <StepHeader icon="palette" title="선호하는 여행 스타일은?" subtitle="다중 선택이 가능해요." />
-    <div className="grid grid-cols-2 gap-3">
-      {STYLE_OPTIONS.map((opt) => (
-        <Pill
-          key={opt.id}
-          active={styles.includes(opt.id)}
-          onClick={() => toggleStyle(opt.id)}
-        >
-          {opt.label}
-        </Pill>
-      ))}
-    </div>
-  </>
-);
-
-const Step5City = ({ cityKo, setCityKo, youtubeUrl, setYoutubeUrl }) => (
-  <>
-    <StepHeader icon="public" title="떠나고 싶은 도시는?" subtitle="도시 1곳을 선택해 주세요." />
-
-    {/* YouTube URL (선택) */}
-    <details className="mb-5 bg-[#f8f9ff] rounded-xl p-4 border border-[#e2e8f0]">
-      <summary className="font-['Inter'] text-[13px] font-semibold text-[#4f46e5] cursor-pointer">
-        YouTube vlog URL로 시작 (선택)
-      </summary>
-      <input
-        type="url"
-        value={youtubeUrl}
-        onChange={(e) => setYoutubeUrl(e.target.value)}
-        placeholder="https://www.youtube.com/watch?v=..."
-        className="mt-3 w-full h-11 px-3 rounded-lg border border-[#c7c4d8] bg-white outline-none font-['Inter'] text-[14px] focus:border-[#4f46e5]"
-      />
-      <p className="mt-2 font-['Inter'] text-[12px] text-[#777587]">
-        URL 입력 시 영상 자막 분석으로 일정 자동 생성. 자막 없는 영상은 fallback 동작.
-      </p>
-    </details>
-
-    <div className="flex flex-col gap-6">
-      {CITY_GROUPS.map((g) => (
-        <div key={g.country}>
-          <h3 className="font-['Plus_Jakarta_Sans'] font-semibold text-[15px] text-[#464555] mb-2.5">
-            {g.country}
-          </h3>
-          <div className="grid grid-cols-3 gap-2.5">
-            {g.cities.map((c) => (
-              <Pill key={c} active={cityKo === c} onClick={() => setCityKo(c)}>
-                {c}
-              </Pill>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  </>
 );
 
 const GeneratingScreen = ({ stepLabel, error, onRetry }) => (
   <section
-    className="flex-1 flex flex-col items-center justify-center text-center"
     style={{
-      backgroundImage:
-        'linear-gradient(180deg, rgb(248, 249, 255) 0%, rgb(229, 238, 255) 100%)',
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      textAlign: 'center',
+      paddingTop: 60,
+      paddingBottom: 60,
     }}
   >
-    <div className="relative size-[88px] rounded-full bg-white flex items-center justify-center mb-6 shadow-md">
+    <div
+      style={{
+        position: 'relative',
+        width: 88,
+        height: 88,
+        borderRadius: '50%',
+        background: 'var(--bg)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 24,
+        boxShadow: 'var(--shadow-lg)',
+      }}
+    >
       <div
-        className="absolute inset-[-12px] rounded-full border-4 border-[#3525cd]/80 border-t-transparent animate-spin"
-        style={{ animationDuration: '2s' }}
+        style={{
+          position: 'absolute',
+          inset: -10,
+          borderRadius: '50%',
+          border: '4px solid rgba(93,168,197,0.8)',
+          borderTopColor: 'transparent',
+          animation: 'spin 1.6s linear infinite',
+        }}
         aria-hidden
       />
-      <span className="material-symbols-outlined text-[#3525cd] text-[28px]" aria-hidden>
-        auto_awesome
-      </span>
+      <span style={{ fontSize: 32, color: 'var(--primary-deep)' }}>✨</span>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
-    <h3 className="font-['Plus_Jakarta_Sans'] font-bold text-[22px] text-[#0b1c30] mb-2">
+    <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', margin: 0 }}>
       AI가 일정을 만들고 있어요
     </h3>
-    <p className="font-['Inter'] text-[14px] text-[#464555] max-w-[280px]">
+    <p style={{ marginTop: 8, fontSize: 13, color: 'var(--text-soft)', maxWidth: 280 }}>
       {stepLabel || '잠시만 기다려 주세요...'}
     </p>
     {error && (
-      <div className="mt-6 max-w-[300px] bg-red-50 border border-red-200 rounded-lg p-3 font-['Inter'] text-[13px] text-red-700">
+      <div className="error-box" style={{ marginTop: 24, maxWidth: 300 }}>
         {error}
         <button
           type="button"
           onClick={onRetry}
-          className="ml-2 font-semibold underline"
+          style={{
+            marginLeft: 8,
+            background: 'transparent',
+            border: 0,
+            fontWeight: 700,
+            color: 'inherit',
+            textDecoration: 'underline',
+            cursor: 'pointer',
+          }}
         >
           다시 시도
         </button>
