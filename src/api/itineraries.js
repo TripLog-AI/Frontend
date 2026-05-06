@@ -56,6 +56,11 @@ export async function pollAiRequest(requestId, { intervalMs = 1500, timeoutMs = 
   throw new Error('AI 응답이 시간 내에 도착하지 않았습니다.');
 }
 
+export async function deleteItinerary(id) {
+  const { data } = await api.delete(`/itineraries/${id}`);
+  return data;
+}
+
 export async function swapAlternative(itineraryId, dayId, slotId, alternativeId) {
   const { data } = await api.patch(
     `/itineraries/${itineraryId}/days/${dayId}/slots/${slotId}/swap`,

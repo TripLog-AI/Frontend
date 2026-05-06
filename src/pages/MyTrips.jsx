@@ -1,21 +1,62 @@
 // src/pages/MyTrips.jsx — Figma node 1:10253 + BE itineraries 연동
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
-import { fetchMyItineraries } from '../api/itineraries';
+import { fetchMyItineraries, deleteItinerary } from '../api/itineraries';
 
-const TripCardMenu = () => (
-  <button
-    type="button"
-    className="flex items-center justify-center p-[5.5px] rounded-lg text-[#464555] hover:bg-slate-100/80"
-    aria-label="More options"
-    onClick={(e) => e.preventDefault()}
-  >
-    <span className="material-symbols-outlined text-[18px] text-[#94a3b8]" aria-hidden>
-      more_horiz
-    </span>
-  </button>
-);
+const TripCardMenu = ({ open, onToggle, onDelete }) => {
+  const menuRef = useRef(null);
+
+  // 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!open) return;
+    const handle = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        onToggle(false);
+      }
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [open, onToggle]);
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        type="button"
+        className="flex items-center justify-center p-[5.5px] rounded-lg text-[#464555] hover:bg-slate-100/80"
+        aria-label="More options"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onToggle(!open);
+        }}
+      >
+        <span className="material-symbols-outlined text-[18px] text-[#94a3b8]" aria-hidden>
+          more_horiz
+        </span>
+      </button>
+      {open && (
+        <div className="absolute right-0 top-9 z-10 w-32 bg-white border border-[#e2e8f0] rounded-lg shadow-lg overflow-hidden">
+          <button
+            type="button"
+            className="w-full px-4 py-2.5 text-left font-['Inter'] text-[14px] text-red-600 hover:bg-red-50 flex items-center gap-2"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDelete();
+              onToggle(false);
+            }}
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden>
+              delete
+            </span>
+            삭제
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 function tripStatus(startDate, endDate) {
   if (!startDate || !endDate) return 'upcoming';
@@ -66,7 +107,7 @@ const STATUS_BADGE = {
   },
 };
 
-const TripCard = ({ trip }) => {
+const TripCard = ({ trip, menuOpen, onMenuToggle, onDelete }) => {
   const status = tripStatus(trip.startDate, trip.endDate);
   const badge = STATUS_BADGE[status];
   const themes = parseThemes(trip.themes);
@@ -104,7 +145,7 @@ const TripCard = ({ trip }) => {
               {badge.label}
             </span>
           </div>
-          <TripCardMenu />
+          <TripCardMenu open={menuOpen} onToggle={onMenuToggle} onDelete={onDelete} />
         </div>
         <div className="relative flex flex-col gap-[5.5px]">
           <h2 className="font-['Plus_Jakarta_Sans'] font-semibold text-[22px] leading-7 text-[#0b1c30]">
@@ -153,6 +194,21 @@ const MyTrips = () => {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+
+  const handleDelete = async (tripId) => {
+    if (!window.confirm('이 일정을 삭제하시겠습니까? 되돌릴 수 없습니다.')) return;
+    setDeletingId(tripId);
+    try {
+      await deleteItinerary(tripId);
+      setTrips((prev) => prev.filter((t) => t.id !== tripId));
+    } catch (err) {
+      alert(err.message || '삭제에 실패했습니다.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -184,7 +240,7 @@ const MyTrips = () => {
     >
       <header className="fixed top-0 w-full z-[2] backdrop-blur-[6px] bg-white/80 border-b border-[#e2e8f0] shadow-[0_1px_1px_rgba(0,0,0,0.05)] max-w-xl mx-auto left-0 right-0">
         <div className="flex items-center justify-between px-5 py-3 max-w-xl mx-auto w-full">
-          <div className="flex items-center gap-[11px]">
+          <Link to="/" className="flex items-center gap-[11px] -ml-2 p-2 rounded-lg hover:bg-slate-50/80" aria-label="홈으로">
             <span
               className="material-symbols-outlined text-[#4f46e5] text-xl"
               style={{ fontVariationSettings: "'FILL' 1" }}
@@ -195,7 +251,7 @@ const MyTrips = () => {
             <span className="font-['Plus_Jakarta_Sans'] font-extrabold text-[20px] leading-7 tracking-tight text-[#4f46e5]">
               TripLog AI
             </span>
-          </div>
+          </Link>
           <div
             className="size-8 rounded-full bg-[#d3e4fe] border border-[#c7c4d8] flex items-center justify-center shrink-0"
             aria-hidden
@@ -252,7 +308,18 @@ const MyTrips = () => {
             </div>
           )}
 
-          {!loading && !error && trips.map((trip) => <TripCard key={trip.id} trip={trip} />)}
+          {!loading && !error && trips.map((trip) => (
+            <TripCard
+              key={trip.id}
+              trip={trip}
+              menuOpen={openMenuId === trip.id}
+              onMenuToggle={(open) => setOpenMenuId(open ? trip.id : null)}
+              onDelete={() => handleDelete(trip.id)}
+            />
+          ))}
+          {deletingId && (
+            <div className="text-center font-['Inter'] text-[13px] text-[#94a3b8]">삭제 중...</div>
+          )}
         </div>
       </main>
 

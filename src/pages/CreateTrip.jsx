@@ -1,10 +1,9 @@
 // src/pages/CreateTrip.jsx — Triple식 5-step wizard (객관식 wizard)
-// Multi-step: 기간 → 동행 → 페이스 → 스타일 → 도시 → AI generate
+// Multi-step: 도시 → 기간 → 동행 → 페이스 → 스타일 → AI generate
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   generateAiItinerary,
-  parseYoutubeItinerary,
   pollAiRequest,
 } from '../api/itineraries';
 
@@ -122,19 +121,17 @@ const CreateTrip = () => {
   const [styles, setStyles] = useState([]); // style ids
   const [cityKo, setCityKo] = useState(null);
 
-  // YouTube URL 모드 (5/7는 미시연이지만 input은 둠)
-  const [youtubeUrl, setYoutubeUrl] = useState('');
-
   const [stepLabel, setStepLabel] = useState('');
   const [error, setError] = useState(null);
 
+  // Step 순서: City → Duration → Companion → Pace → Style
   const canProceed = (() => {
     switch (step) {
-      case 0: return !!duration;
-      case 1: return companions.length > 0;
-      case 2: return !!pace;
-      case 3: return styles.length > 0;
-      case 4: return !!cityKo;
+      case 0: return !!cityKo;
+      case 1: return !!duration;
+      case 2: return companions.length > 0;
+      case 3: return !!pace;
+      case 4: return styles.length > 0;
       default: return false;
     }
   })();
@@ -189,24 +186,17 @@ const CreateTrip = () => {
       });
       const themes = Array.from(themesSet);
 
-      let requestId;
-      if (youtubeUrl.trim()) {
-        setStepLabel('Parsing video transcript...');
-        const res = await parseYoutubeItinerary({ youtubeUrl: youtubeUrl.trim() });
-        requestId = res.requestId;
-      } else {
-        setStepLabel('AI generating with RAG...');
-        const res = await generateAiItinerary({
-          city: cityEn,
-          country,
-          startDate,
-          endDate,
-          companionType,
-          themes,
-          pace,
-        });
-        requestId = res.requestId;
-      }
+      setStepLabel('AI generating with RAG...');
+      const res = await generateAiItinerary({
+        city: cityEn,
+        country,
+        startDate,
+        endDate,
+        companionType,
+        themes,
+        pace,
+      });
+      const requestId = res.requestId;
 
       if (!requestId) throw new Error('AI 요청 ID를 받지 못했습니다.');
 
@@ -250,13 +240,11 @@ const CreateTrip = () => {
       </header>
 
       <main className="flex-1 max-w-xl w-full mx-auto px-6 pt-[60px] pb-[120px] flex flex-col">
-        {step === 0 && <Step1Duration duration={duration} setDuration={setDuration} />}
-        {step === 1 && <Step2Companion companions={companions} toggleCompanion={toggleCompanion} />}
-        {step === 2 && <Step3Pace pace={pace} setPace={setPace} />}
-        {step === 3 && <Step4Style styles={styles} toggleStyle={toggleStyle} />}
-        {step === 4 && (
-          <Step5City cityKo={cityKo} setCityKo={setCityKo} youtubeUrl={youtubeUrl} setYoutubeUrl={setYoutubeUrl} />
-        )}
+        {step === 0 && <Step1City cityKo={cityKo} setCityKo={setCityKo} />}
+        {step === 1 && <Step2Duration duration={duration} setDuration={setDuration} />}
+        {step === 2 && <Step3Companion companions={companions} toggleCompanion={toggleCompanion} />}
+        {step === 3 && <Step4Pace pace={pace} setPace={setPace} />}
+        {step === 4 && <Step5Style styles={styles} toggleStyle={toggleStyle} />}
         {step === 5 && <GeneratingScreen stepLabel={stepLabel} error={error} onRetry={() => setStep(TOTAL_STEPS - 1)} />}
       </main>
 
@@ -317,7 +305,7 @@ const Pill = ({ active, children, onClick, twoLine }) => (
   </button>
 );
 
-const Step1Duration = ({ duration, setDuration }) => (
+const Step2Duration = ({ duration, setDuration }) => (
   <>
     <StepHeader icon="calendar_month" title="여행 기간은?" subtitle="원하는 기간을 선택해 주세요." />
     <div className="grid grid-cols-3 gap-3">
@@ -334,7 +322,7 @@ const Step1Duration = ({ duration, setDuration }) => (
   </>
 );
 
-const Step2Companion = ({ companions, toggleCompanion }) => (
+const Step3Companion = ({ companions, toggleCompanion }) => (
   <>
     <StepHeader icon="group" title="누구와 떠나요?" subtitle="다중 선택이 가능해요." />
     <div className="grid grid-cols-3 gap-3">
@@ -351,7 +339,7 @@ const Step2Companion = ({ companions, toggleCompanion }) => (
   </>
 );
 
-const Step3Pace = ({ pace, setPace }) => (
+const Step4Pace = ({ pace, setPace }) => (
   <>
     <StepHeader icon="speed" title="여행 페이스는?" subtitle="하루에 몇 곳을 갈지 정해요." />
     <div className="flex flex-col gap-3">
@@ -389,7 +377,7 @@ const Step3Pace = ({ pace, setPace }) => (
   </>
 );
 
-const Step4Style = ({ styles, toggleStyle }) => (
+const Step5Style = ({ styles, toggleStyle }) => (
   <>
     <StepHeader icon="palette" title="선호하는 여행 스타일은?" subtitle="다중 선택이 가능해요." />
     <div className="grid grid-cols-2 gap-3">
@@ -406,26 +394,9 @@ const Step4Style = ({ styles, toggleStyle }) => (
   </>
 );
 
-const Step5City = ({ cityKo, setCityKo, youtubeUrl, setYoutubeUrl }) => (
+const Step1City = ({ cityKo, setCityKo }) => (
   <>
     <StepHeader icon="public" title="떠나고 싶은 도시는?" subtitle="도시 1곳을 선택해 주세요." />
-
-    {/* YouTube URL (선택) */}
-    <details className="mb-5 bg-[#f8f9ff] rounded-xl p-4 border border-[#e2e8f0]">
-      <summary className="font-['Inter'] text-[13px] font-semibold text-[#4f46e5] cursor-pointer">
-        YouTube vlog URL로 시작 (선택)
-      </summary>
-      <input
-        type="url"
-        value={youtubeUrl}
-        onChange={(e) => setYoutubeUrl(e.target.value)}
-        placeholder="https://www.youtube.com/watch?v=..."
-        className="mt-3 w-full h-11 px-3 rounded-lg border border-[#c7c4d8] bg-white outline-none font-['Inter'] text-[14px] focus:border-[#4f46e5]"
-      />
-      <p className="mt-2 font-['Inter'] text-[12px] text-[#777587]">
-        URL 입력 시 영상 자막 분석으로 일정 자동 생성. 자막 없는 영상은 fallback 동작.
-      </p>
-    </details>
 
     <div className="flex flex-col gap-6">
       {CITY_GROUPS.map((g) => (

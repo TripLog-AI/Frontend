@@ -338,51 +338,7 @@ const Home = () => {
           </section>
         )}
 
-        <section className="flex flex-col gap-6">
-          <div className="flex items-start justify-between gap-4">
-            <h2 className="font-['Plus_Jakarta_Sans'] font-semibold text-[32px] leading-10 tracking-[-0.32px] text-on-surface">
-              <span className="block">Trending Travel</span>
-              <span className="block">Guides</span>
-            </h2>
-            <Link
-              to="/trips"
-              className="flex items-center gap-1 font-['Inter'] text-[13px] font-medium text-primary tracking-wide shrink-0 pt-1"
-            >
-              <span className="flex flex-col items-end leading-[18px]">
-                <span>My</span>
-                <span>Trips</span>
-              </span>
-              <span className="material-symbols-outlined text-primary text-sm" aria-hidden>
-                chevron_right
-              </span>
-            </Link>
-          </div>
-
-          <div className="flex flex-col gap-6">
-            {loading && (
-              <div className="bg-white border border-outline-variant rounded-lg p-6 text-center font-['Inter'] text-[14px] text-on-surface-variant">
-                추천 코스를 불러오는 중...
-              </div>
-            )}
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center font-['Inter'] text-[14px] text-red-700">
-                {error}
-              </div>
-            )}
-            {!loading && !error && guides.length === 0 && (
-              <div className="bg-white border border-outline-variant rounded-lg p-6 text-center font-['Inter'] text-[14px] text-on-surface-variant">
-                추천 코스가 아직 없습니다. AI로 새 일정을 만들어보세요.
-              </div>
-            )}
-            {guides.map((g) => (
-              <GuideCard
-                key={g.id}
-                item={g}
-                onClick={savingId ? undefined : handlePickCourse}
-              />
-            ))}
-          </div>
-        </section>
+        {/* Trending Travel Guides 섹션 제거됨 — YouTube 코스 기능은 6/11 최종 발표용 */}
       </main>
 
       <BottomNav />
