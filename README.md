@@ -91,17 +91,12 @@ cd ../Backend && ./mvnw spring-boot:run
 
 ---
 
-## Week 1 구현 목표
+## 작업 트랙 (post mid-demo)
 
-Mock API 기반으로 UI 먼저 완성 → 실제 API 붙이기
+mid-demo 화면(홈/내 여행/일정 상세/Swap/AI 생성 등) 은 모두 BE 와 실연동 완료.  
+final (6/11) 까지 분배안은 **마스터 plan** 참조:
 
-- [ ] 홈 화면 (YouTube 추천 코스 목록) — `GET /api/v1/youtube-courses`
-- [ ] 내 여행 목록 — `GET /api/v1/itineraries`
-- [ ] 일정 상세 (대안 장소 포함) — `GET /api/v1/itineraries/{id}`
-- [ ] 대안 장소 Swap UI — `PATCH /api/v1/itineraries/.../swap`
-- [ ] AI 일정 생성 폼 제출 — `POST /api/v1/itineraries/ai/generate`
-
-엔드포인트·바디는 Swagger 및 `Docs/API_CONTRACT.md` 기준으로 통일합니다.
+→ [`../Lim/10_final_plan.md`](../Lim/10_final_plan.md)
 
 ---
 
